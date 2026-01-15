@@ -1,6 +1,6 @@
 # ARC-AGI-2 Solver: System 1 / System 2 Architecture
 
-A state-of-the-art solver for the [ARC-AGI-2 benchmark](https://github.com/arcprize/ARC-AGI-2) using a biologically-inspired dual-system architecture with visual verification.
+A solver for the [ARC-AGI-2 benchmark](https://github.com/arcprize/ARC-AGI-2) using a dual-system architecture with visual verification.
 
 ## Table of Contents
 - [Overview](#overview)
