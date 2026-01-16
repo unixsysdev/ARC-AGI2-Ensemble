@@ -297,6 +297,13 @@ class PrimitiveTranslator:
                 match = re.search(r'(\d+)', step)
                 value = int(match.group(1)) if match else 5
                 return filter_sel(FilterCondition.AREA_LT, value, english=step)
+            elif "has_colors" in step_lower or "contains colors" in step_lower or "multi-color" in step_lower:
+                # Parse color list, e.g., "has_colors [1,3,4]" or "contains colors 1,3,4"
+                match = re.search(r'\[([0-9,\s]+)\]|colors?\s+([0-9,\s]+)', step)
+                if match:
+                    color_str = match.group(1) or match.group(2)
+                    colors = [int(c.strip()) for c in color_str.split(',')]
+                    return filter_sel(FilterCondition.HAS_COLORS, colors, english=step)
         
         if "remove" in step_lower:
             if "small" in step_lower:

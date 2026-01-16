@@ -70,6 +70,10 @@ replace(source_color=A, target_color=B)      # Replace A with B everywhere
 # Flood Fill (CRITICAL: always specify target_color!)
 flood_fill(color=N, start_position="border", target_color=0)
 
+# Filters (refine selection to ONE object)
+filter(condition="area_eq", value=9)         # Keep objects with area=9 (e.g., 3x3)
+filter(condition="has_colors", value=[1,3,4]) # Keep objects containing ALL these colors
+
 # Extraction (USE WHEN OUTPUT IS SMALLER THAN INPUT!)
 extract()                                    # Crop grid to selection bounding box
 

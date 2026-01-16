@@ -665,6 +665,17 @@ class PrimitiveInterpreter:
                 unique = np.unique(values)
                 keep = len(unique) == 1 and unique[0] == params.value
             
+            elif params.condition == FilterCondition.HAS_COLORS:
+                # Check if selection contains ALL of the required colors
+                # value should be a list of colors, e.g., [1, 3, 4, 6]
+                required_colors = set(params.value) if isinstance(params.value, (list, tuple)) else {params.value}
+                values = selection.values
+                unique_colors = set(np.unique(values))
+                # Remove 0 (background) from check
+                unique_colors.discard(0)
+                # Keep if selection has ALL required colors
+                keep = required_colors.issubset(unique_colors)
+            
             if keep:
                 filtered.append(selection)
         

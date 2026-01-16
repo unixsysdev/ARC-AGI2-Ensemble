@@ -94,6 +94,7 @@ class FilterCondition(Enum):
     AREA_GT = "area_gt"       # Area greater than
     AREA_LT = "area_lt"       # Area less than
     COLOR_EQ = "color_eq"     # Has specific color
+    HAS_COLORS = "has_colors" # Contains ALL of these colors (value=[1,2,3])
 
 
 class SelectMode(Enum):
