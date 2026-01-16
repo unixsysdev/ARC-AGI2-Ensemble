@@ -36,12 +36,13 @@ Translate your visual understanding DIRECTLY into these executable primitives:
 ```
 AVAILABLE PRIMITIVES (use exact function syntax):
 
-# Selection
+# Selection (mode: set=replace, intersect=keep overlap, union=add)
 select(criteria="color", value=N)           # Select all cells of color N (0-9)
 select(criteria="connected")                 # Find all connected components
 select(criteria="largest")                   # Select the largest object
 select(criteria="smallest")                  # Select the smallest object
-select(criteria="size_rank", value=N)        # Select by size rank (0=smallest, -1=largest, 1=2nd smallest)
+select(criteria="size_rank", value=N)        # Select by size rank (0=smallest, -1=largest)
+select(criteria="color", value=3, mode="intersect")  # Keep only red cells that were already selected
 select(criteria="enclosed", enclosing_color=N)  # Find regions enclosed by color N
 
 # Painting

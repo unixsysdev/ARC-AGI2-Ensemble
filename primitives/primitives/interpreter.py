@@ -29,6 +29,7 @@ from .dsl import (
     ExtractParams,
     GravityParams,
     SelectCriteria,
+    SelectMode,
     TransformAction,
     PaintAction,
     FilterCondition,
@@ -389,9 +390,36 @@ class PrimitiveInterpreter:
         else:
             selection = Selection.empty(grid)
         
+        # Apply selection mode (how to combine with existing selections)
+        mode = params.mode if params.mode else SelectMode.SET
+        
+        if mode == SelectMode.SET or not state.selections:
+            # Default: replace existing selections
+            final_selections = [selection]
+        else:
+            # Combine with existing selection(s)
+            existing_mask = np.zeros_like(arr, dtype=bool)
+            for sel in state.selections:
+                existing_mask |= sel.mask
+            
+            if mode == SelectMode.INTERSECT:
+                # Keep only where both old and new overlap
+                combined_mask = existing_mask & selection.mask
+                final_selections = [Selection(mask=combined_mask, source_grid=grid)]
+            elif mode == SelectMode.UNION:
+                # Add new to existing
+                combined_mask = existing_mask | selection.mask
+                final_selections = [Selection(mask=combined_mask, source_grid=grid)]
+            elif mode == SelectMode.SUBTRACT:
+                # Remove new from existing
+                combined_mask = existing_mask & ~selection.mask
+                final_selections = [Selection(mask=combined_mask, source_grid=grid)]
+            else:
+                final_selections = [selection]
+        
         return ExecutionState(
             grid=grid,
-            selections=[selection]
+            selections=final_selections
         )
     
     def _execute_transform(

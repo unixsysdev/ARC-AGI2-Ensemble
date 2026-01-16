@@ -54,12 +54,13 @@ COLOR KEY: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 
 ## GENERATE DSL PROGRAM using these primitives:
 
 ```
-# Selection
+# Selection (mode: set=replace, intersect=keep overlap, union=add)
 select(criteria="color", value=N)           # Select cells of color N
 select(criteria="connected")                 # Find connected components
 select(criteria="largest")                   # Select largest object
 select(criteria="smallest")                  # Select smallest object
-select(criteria="size_rank", value=N)        # By size rank (0=smallest, -1=largest, 1=2nd smallest)
+select(criteria="size_rank", value=N)        # By size rank (0=smallest, -1=largest)
+select(criteria="color", value=N, mode="intersect")  # Keep only cells that were already selected
 select(criteria="enclosed", enclosing_color=N)  # Regions enclosed by color N
 
 # Painting
@@ -179,6 +180,16 @@ CRITICAL:
         """
         logger.info("[ENSEMBLE] Dual-path planning: VLM visual + LLM symbolic")
         
+        # Detect expected output size from training examples
+        expected_size = self._get_expected_output_size(task)
+        input_size = self._get_input_size(task)
+        needs_extract = expected_size and input_size and (
+            expected_size[0] < input_size[0] or expected_size[1] < input_size[1]
+        )
+        
+        if needs_extract:
+            logger.info(f"[ENSEMBLE] ⚠️ Output {expected_size} < Input {input_size} → plans MUST use extract()!")
+        
         # Run both analyses in parallel with SEPARATE feedback
         visual_task = self._get_visual_analysis(task, vlm_feedback)
         symbolic_task = self._get_symbolic_analysis(task, llm_feedback)
@@ -206,10 +217,34 @@ CRITICAL:
         logger.info(f"[ENSEMBLE] VLM DSL: {len(str(visual_plan))} chars")
         logger.info(f"[ENSEMBLE] LLM DSL: {len(str(symbolic_plan))} chars")
         
-        # Meta-Reviewer selects the best expert (not just merge)
-        unified_plan = await self._select_best_expert(visual_plan, symbolic_plan)
+        # Meta-Reviewer selects the best expert (with size constraint awareness)
+        unified_plan = await self._select_best_expert(
+            visual_plan, symbolic_plan, expected_size, needs_extract
+        )
         
         return unified_plan
+    
+    def _get_expected_output_size(self, task: Any) -> tuple[int, int] | None:
+        """Get expected output size from training examples (if consistent)."""
+        if not task.train:
+            return None
+        
+        sizes = []
+        for pair in task.train:
+            h, w = len(pair.output), len(pair.output[0]) if pair.output else 0
+            sizes.append((h, w))
+        
+        # Check if all training outputs have same size
+        if all(s == sizes[0] for s in sizes):
+            return sizes[0]
+        return None  # Inconsistent sizes
+    
+    def _get_input_size(self, task: Any) -> tuple[int, int] | None:
+        """Get input size from first training example."""
+        if not task.train:
+            return None
+        first_input = task.train[0].input
+        return (len(first_input), len(first_input[0]) if first_input else 0)
     
     async def _get_visual_analysis(
         self, 
@@ -268,18 +303,49 @@ Learn from these failures and try a DIFFERENT approach. The previous solution wa
         logger.info(f"[LLM SYMBOLIC] Response: {len(response)} chars")
         return response
     
-    async def _select_best_expert(self, visual_plan: str, symbolic_plan: str) -> str:
+    async def _select_best_expert(
+        self, 
+        visual_plan: str, 
+        symbolic_plan: str,
+        expected_size: tuple[int, int] = None,
+        needs_extract: bool = False
+    ) -> str:
         """Select the best expert solution (not just merge).
         
         The Meta-Reviewer acts as a Judge, choosing:
         - Visual Expert (VLM) for topology, holes, gravity
         - Symbolic Expert (LLM) for counting, math, color codes
         - Or a HYBRID fix using VLM structure + LLM colors
+        
+        Also validates that plans use extract() when output size is smaller.
         """
+        # Pre-check: If output needs to be smaller, validate plans have extract()
+        size_warning = ""
+        if needs_extract:
+            vlm_has_extract = "extract()" in visual_plan.lower()
+            llm_has_extract = "extract()" in symbolic_plan.lower()
+            
+            if not vlm_has_extract:
+                logger.warning("[META-REVIEWER] ⚠️ VLM plan MISSING extract() but output should be smaller!")
+            if not llm_has_extract:
+                logger.warning("[META-REVIEWER] ⚠️ LLM plan MISSING extract() but output should be smaller!")
+            
+            size_warning = f"""
+
+⚠️ CRITICAL SIZE CONSTRAINT: 
+The expected output is {expected_size[0]}x{expected_size[1]} (SMALLER than input).
+Any valid plan MUST end with extract() to crop the output!
+If a candidate doesn't use extract(), REJECT IT or add extract() at the end.
+"""
+        
         prompt = self.SELECTION_PROMPT.format(
             visual_plan=visual_plan,
             symbolic_plan=symbolic_plan
         )
+        
+        # Inject size warning into prompt
+        if size_warning:
+            prompt = prompt + size_warning
         
         messages = [
             {"role": "system", "content": "You are a Lead Architect selecting the best ARC solution from two experts."},
@@ -288,6 +354,8 @@ Learn from these failures and try a DIFFERENT approach. The previous solution wa
         
         logger.info(f"[META-REVIEWER] Model: {self.coder_model.name}")
         logger.info(f"[META-REVIEWER] Selecting best expert (Visual vs Symbolic)...")
+        if needs_extract:
+            logger.info(f"[META-REVIEWER] Size constraint: output must be {expected_size}")
         
         try:
             response = await self.client.chat(
@@ -296,6 +364,15 @@ Learn from these failures and try a DIFFERENT approach. The previous solution wa
                 temperature=0.1  # Low temp for strict selection
             )
             logger.info(f"[META-REVIEWER] Selection complete: {len(response)} chars")
+            
+            # Post-check: If extract was needed but not in response, append warning
+            if needs_extract and "extract()" not in response.lower():
+                logger.warning("[META-REVIEWER] ⚠️ Final plan MISSING extract(), appending it!")
+                # Find DSL block and append extract()
+                if "```dsl" in response:
+                    response = response.replace("```\n\nCRITICAL", "extract()\n```\n\nCRITICAL")
+                    response = response.rstrip("```") + "\nextract()\n```"
+            
             return response
         except Exception as e:
             logger.warning(f"[META-REVIEWER] Selection failed: {e}, using visual plan")

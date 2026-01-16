@@ -96,6 +96,14 @@ class FilterCondition(Enum):
     COLOR_EQ = "color_eq"     # Has specific color
 
 
+class SelectMode(Enum):
+    """Mode for how SELECT combines with existing selections."""
+    SET = "set"               # Replace existing (default)
+    INTERSECT = "intersect"   # Keep only overlap with existing
+    UNION = "union"           # Add to existing
+    SUBTRACT = "subtract"     # Remove from existing
+
+
 class CompositeMode(Enum):
     """Modes for COMPOSITE primitive."""
     OVERLAY = "overlay"       # Place on top
@@ -176,6 +184,7 @@ class SelectParams:
     value: Any = None  # Color value, size, etc.
     pattern: Grid | None = None  # Template grid for PATTERN matching
     enclosing_color: int | None = None  # For ENCLOSED: color that encloses
+    mode: SelectMode = None  # How to combine with existing (default: SET/replace)
 
 
 @dataclass
