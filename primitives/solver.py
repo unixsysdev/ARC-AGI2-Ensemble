@@ -228,7 +228,8 @@ class PrimitivesSolver:
         self,
         task: Any,
         test_index: int = 0,
-        max_attempts: int = 3
+        max_attempts: int = 3,
+        use_feedback: bool = True  # NEW: Optional feedback loop
     ) -> list[Grid]:
         """Solve with multiple attempts and LEARNING LOOP.
         
@@ -243,23 +244,28 @@ class PrimitivesSolver:
             task: ARC Task
             test_index: Which test to solve
             max_attempts: Maximum attempts
+            use_feedback: If True, send accumulated failures to planners (default: True)
             
         Returns:
             List of candidate solutions (best first)
         """
         candidates = []
-        feedback = None  # Starts with no feedback
+        all_failures = []  # Accumulate ALL failures across attempts
         
         # Set up run context for organized filmstrip output
         self.filmstrip_renderer.set_run_context(task.task_id)
         logger.info(f"  Run output: {self.filmstrip_renderer.output_dir}")
+        if not use_feedback:
+            logger.info("  Feedback loop DISABLED (--no-feedback)")
         
         for attempt in range(max_attempts):
             self.filmstrip_renderer.next_attempt()  # Increment attempt counter
             logger.info(f"Attempt {attempt + 1}/{max_attempts}")
             
+            # Pass accumulated failures as feedback (if enabled)
+            feedback = all_failures if (use_feedback and all_failures) else None
             if feedback:
-                logger.info(f"  Using feedback from {len(feedback)} previous failures")
+                logger.info(f"  Using feedback from {len(feedback)} accumulated failures")
             
             try:
                 grid, step_failures, program = await self.solve_with_feedback(
@@ -271,29 +277,24 @@ class PrimitivesSolver:
                 training_failures = self._validate_on_training(task, program)
                 
                 if training_failures:
-                    # Solution is WRONG - add failures to feedback
+                    # Solution is WRONG - ACCUMULATE failures
                     logger.warning(f"  VALIDATION FAILED: {len(training_failures)} training examples wrong")
                     for f in training_failures[:3]:  # Show first 3
                         logger.warning(f"    - {f}")
-                    step_failures.extend(training_failures)
+                    # Add to accumulated failures
+                    all_failures.extend(training_failures)
+                    all_failures.extend(step_failures)
                 else:
                     # Solution works on ALL training examples!
                     logger.info("  ✓ VALIDATION PASSED: Correct on all training examples!")
-                    step_failures = []  # Clear failures since we're good
                     
                     # Rename filmstrip to mark as WINNER
                     self.filmstrip_renderer.mark_winner()
-                
-                # Pass failures to next attempt as feedback
-                feedback = step_failures if step_failures else None
-                
-                if not step_failures:
-                    logger.info("  All steps verified! Stopping early.")
-                    break
+                    break  # Success!
                     
             except Exception as e:
                 logger.error(f"Attempt {attempt + 1} failed: {e}")
-                feedback = [f"Attempt crashed: {str(e)}"]
+                all_failures.append(f"Attempt {attempt + 1} crashed: {str(e)}")
         
         return candidates
     

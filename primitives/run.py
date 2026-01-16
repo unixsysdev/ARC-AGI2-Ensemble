@@ -111,6 +111,11 @@ Examples:
         default=3,
         help="Maximum solve attempts"
     )
+    parser.add_argument(
+        "--no-feedback",
+        action="store_true",
+        help="Disable feedback loop between attempts (each attempt starts fresh)"
+    )
     
     # Output options
     parser.add_argument(
@@ -175,7 +180,8 @@ Examples:
         candidates = await solver.solve_with_retry(
             task,
             test_index=args.test_index,
-            max_attempts=args.attempts
+            max_attempts=args.attempts,
+            use_feedback=not args.no_feedback  # Default: True (feedback ON)
         )
     
     if candidates:
