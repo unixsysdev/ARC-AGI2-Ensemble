@@ -183,7 +183,7 @@ class PrimitivesSolver:
         task: Any, 
         test_index: int = 0,
         previous_feedback: list[str] = None
-    ) -> tuple[Grid, list[str]]:
+    ) -> tuple[Grid, list[str], Program]:
         """Solve with optional feedback from previous attempts.
         
         Args:
@@ -192,8 +192,7 @@ class PrimitivesSolver:
             previous_feedback: List of failures from previous attempt
             
         Returns:
-            (predicted grid, list of step failures for next attempt)
-        """
+            (predicted grid, list of step failures, program used)"""
         logger.info(f"Solving task {task.task_id}, test {test_index}")
         
         test_input = task.test[test_index].input
@@ -223,7 +222,7 @@ class PrimitivesSolver:
             english_plan
         )
         
-        return final_state.grid, step_failures
+        return final_state.grid, step_failures, program
     
     async def solve_with_retry(
         self,
@@ -233,8 +232,12 @@ class PrimitivesSolver:
     ) -> list[Grid]:
         """Solve with multiple attempts and LEARNING LOOP.
         
-        Each attempt uses feedback from previous failures to improve.
-        Compares output against training examples - if wrong, triggers retry.
+        Each attempt:
+        1. Generate plan and translate to primitives
+        2. Execute on TEST input
+        3. VALIDATE by running same program on TRAINING inputs
+        4. Compare to expected TRAINING outputs
+        5. If wrong, add specific failures to feedback and retry
         
         Args:
             task: ARC Task
@@ -247,9 +250,6 @@ class PrimitivesSolver:
         candidates = []
         feedback = None  # Starts with no feedback
         
-        # Get expected output pattern from training examples for comparison
-        # (We can't use test output, but we can check if our logic works on training)
-        
         for attempt in range(max_attempts):
             logger.info(f"Attempt {attempt + 1}/{max_attempts}")
             
@@ -257,17 +257,24 @@ class PrimitivesSolver:
                 logger.info(f"  Using feedback from {len(feedback)} previous failures")
             
             try:
-                grid, step_failures = await self.solve_with_feedback(
+                grid, step_failures, program = await self.solve_with_feedback(
                     task, test_index, feedback
                 )
                 candidates.append(grid)
                 
-                # Check if output looks reasonable (not all same color)
-                flat = [c for row in grid for c in row]
-                unique_colors = len(set(flat))
-                if unique_colors <= 1:
-                    step_failures.append(f"Output has only {unique_colors} color(s) - likely wrong")
-                    logger.warning(f"  Output has only {unique_colors} unique color - adding to feedback")
+                # VALIDATE on training examples - this is ground truth!
+                training_failures = self._validate_on_training(task, program)
+                
+                if training_failures:
+                    # Solution is WRONG - add failures to feedback
+                    logger.warning(f"  VALIDATION FAILED: {len(training_failures)} training examples wrong")
+                    for f in training_failures[:3]:  # Show first 3
+                        logger.warning(f"    - {f}")
+                    step_failures.extend(training_failures)
+                else:
+                    # Solution works on ALL training examples!
+                    logger.info("  ✓ VALIDATION PASSED: Correct on all training examples!")
+                    step_failures = []  # Clear failures since we're good
                 
                 # Pass failures to next attempt as feedback
                 feedback = step_failures if step_failures else None
@@ -281,6 +288,54 @@ class PrimitivesSolver:
                 feedback = [f"Attempt crashed: {str(e)}"]
         
         return candidates
+    
+    def _validate_on_training(self, task: Any, program: Program) -> list[str]:
+        """Run program on ALL training inputs and compare to expected outputs.
+        
+        This is the GROUND TRUTH test - if our solution works on training
+        examples, it's likely correct for test.
+        
+        Args:
+            task: ARC Task with training examples
+            program: The program to validate
+            
+        Returns:
+            List of failure messages (empty if all correct)
+        """
+        failures = []
+        
+        for i, pair in enumerate(task.train):
+            train_input = pair.input
+            expected_output = pair.output
+            
+            try:
+                # Execute the SAME program on training input
+                states = self.interpreter.execute_program(train_input, program)
+                actual = states[-1].grid  # Final state
+                
+                # Check dimensions
+                if len(actual) != len(expected_output) or len(actual[0]) != len(expected_output[0]):
+                    failures.append(f"Train {i+1}: Size {len(actual)}x{len(actual[0])} != expected {len(expected_output)}x{len(expected_output[0])}")
+                    continue
+                
+                # Cell-by-cell comparison
+                wrong_cells = 0
+                for r in range(len(expected_output)):
+                    for c in range(len(expected_output[0])):
+                        if actual[r][c] != expected_output[r][c]:
+                            wrong_cells += 1
+                
+                if wrong_cells > 0:
+                    total = len(expected_output) * len(expected_output[0])
+                    pct = 100 * wrong_cells / total
+                    failures.append(f"Train {i+1}: {wrong_cells}/{total} cells wrong ({pct:.0f}%)")
+                else:
+                    logger.debug(f"  Train {i+1}: ✓ correct")
+                    
+            except Exception as e:
+                failures.append(f"Train {i+1}: Execution failed: {str(e)}")
+        
+        return failures
 
 
 async def solve_task(task_id: str, config: Config | None = None) -> list[Grid]:
