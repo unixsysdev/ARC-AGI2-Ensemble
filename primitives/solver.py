@@ -357,15 +357,15 @@ async def solve_task(task_id: str, config: Config | None = None) -> list[Grid]:
     
     # Import API client from arc_solver
     try:
-        from primitives.llms.chutes_client import ChutesClient
-        from primitives.models.task import Task
+        from systems.llms.chutes_client import ChutesClient
+        from systems.models.task import Task
     except ImportError:
         # Fallback to relative import
         import sys
         arc_solver_path = Path(__file__).parent.parent.parent.parent / "arc_solver"
         sys.path.insert(0, str(arc_solver_path))
-        from primitives.llms.chutes_client import ChutesClient
-        from primitives.models.task import Task
+        from systems.llms.chutes_client import ChutesClient
+        from systems.models.task import Task
     
     # Load task
     task_path = config.data_dir / "training" / f"{task_id}.json"
