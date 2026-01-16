@@ -5,6 +5,7 @@ import asyncio
 import base64
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,33 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from ..config import Config, ModelConfig
 
 logger = logging.getLogger(__name__)
+
+
+class RateLimiter:
+    """Simple rate limiter that ensures minimum time between requests."""
+    
+    def __init__(self, min_interval: float = 1.0):
+        """Initialize rate limiter.
+        
+        Args:
+            min_interval: Minimum seconds between requests (default: 1.0)
+        """
+        self.min_interval = min_interval
+        self._last_request_time = 0.0
+        self._lock = asyncio.Lock()
+    
+    async def acquire(self):
+        """Wait until we can make a request (respecting rate limit)."""
+        async with self._lock:
+            now = time.time()
+            time_since_last = now - self._last_request_time
+            
+            if time_since_last < self.min_interval:
+                wait_time = self.min_interval - time_since_last
+                logger.debug(f"Rate limit: waiting {wait_time:.2f}s")
+                await asyncio.sleep(wait_time)
+            
+            self._last_request_time = time.time()
 
 
 class ChutesClient:
@@ -27,6 +55,7 @@ class ChutesClient:
             "Content-Type": "application/json"
         }
         self._semaphore = asyncio.Semaphore(config.max_concurrency)
+        self._rate_limiter = RateLimiter(min_interval=getattr(config, 'min_request_interval', 1.0))
         self._client: httpx.AsyncClient | None = None
     
     async def __aenter__(self) -> "ChutesClient":
@@ -51,6 +80,9 @@ class ChutesClient:
     ) -> str:
         """Send chat completion request."""
         async with self._semaphore:
+            # Rate limit - wait for minimum interval between requests
+            await self._rate_limiter.acquire()
+            
             if not self._client:
                 raise RuntimeError("Client not initialized. Use async context manager.")
             

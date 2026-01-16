@@ -53,6 +53,7 @@ class Config:
     api_key: str = field(default_factory=lambda: os.environ.get("CHUTES_API_KEY", ""))
     base_url: str = field(default_factory=lambda: os.environ.get("CHUTES_BASE_URL", "https://llm.chutes.ai/v1"))
     max_concurrency: int = field(default_factory=lambda: int(os.environ.get("MAX_CONCURRENCY", "20")))
+    min_request_interval: float = 1.0  # Minimum seconds between API requests (rate limit)
     
     # Local LLM Settings
     local_url: str = field(default_factory=lambda: os.environ.get("LOCAL_LLM_URL", "http://localhost:8000"))
