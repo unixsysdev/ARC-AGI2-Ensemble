@@ -105,7 +105,8 @@ class Config:
     # Solver Settings
     max_retries_per_step: int = 3
     use_vlm_verification: bool = True
-    use_visual_planning: bool = True  # NEW: Use VLM for initial planning
+    use_visual_planning: bool = True  # Use VLM for initial planning
+    use_ensemble_planning: bool = False  # NEW: Use VLM+LLM dual-path ensemble
     max_program_length: int = 20
     
     def __post_init__(self):

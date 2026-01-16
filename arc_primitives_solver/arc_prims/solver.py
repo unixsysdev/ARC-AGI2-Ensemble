@@ -45,9 +45,13 @@ class PrimitivesSolver:
         self.client = client
         self.config = config
         
-        # Initialize planners (text and visual)
+        # Initialize planners (text, visual, and ensemble)
         self.text_planner = EnglishPlanner(client, config)
         self.visual_planner = VisualPlanner(client, config)
+        
+        # Ensemble planner (combines VLM + LLM)
+        from .planner.ensemble import EnsemblePlanner
+        self.ensemble_planner = EnsemblePlanner(client, config)
         
         # Translator and interpreter
         self.translator = PrimitiveTranslator(client, config)
@@ -196,7 +200,10 @@ class PrimitivesSolver:
         
         # 1. Plan with feedback
         logger.info("Step 1: Generating plan...")
-        if self.config.use_visual_planning:
+        if self.config.use_ensemble_planning:
+            logger.info("  Using ENSEMBLE planner (VLM + LLM dual-path)")
+            english_plan = await self.ensemble_planner.generate_plan(task, previous_feedback)
+        elif self.config.use_visual_planning:
             logger.info("  Using VISUAL planner (VLM with grid images)")
             english_plan = await self.visual_planner.generate_plan(task, previous_feedback)
         else:

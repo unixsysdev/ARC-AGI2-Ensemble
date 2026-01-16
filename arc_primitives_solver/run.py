@@ -87,6 +87,11 @@ Examples:
         help="Use VLM with rendered images for planning (better pattern recognition)"
     )
     parser.add_argument(
+        "--ensemble",
+        action="store_true",
+        help="Use ENSEMBLE planner (VLM visual + LLM symbolic dual-path)"
+    )
+    parser.add_argument(
         "--no-vlm",
         action="store_true",
         help="Disable VLM verification (faster but less accurate)"
@@ -127,7 +132,10 @@ Examples:
         config.use_vlm_verification = False
         logger.info("VLM verification disabled")
     
-    if args.visual_planning:
+    if args.ensemble:
+        config.use_ensemble_planning = True
+        logger.info("ENSEMBLE planning enabled (VLM visual + LLM symbolic)")
+    elif args.visual_planning:
         config.use_visual_planning = True
         logger.info("Visual planning enabled (VLM will analyze grid images)")
     else:
