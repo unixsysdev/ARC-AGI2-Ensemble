@@ -24,6 +24,7 @@ from ..primitives.dsl import (
     paint,
     filter_sel,
     composite,
+    extract,  # ADD THIS!
 )
 
 logger = logging.getLogger(__name__)
@@ -309,6 +310,10 @@ class PrimitiveTranslator:
         
         if "merge" in step_lower:
             return composite(CompositeMode.MERGE, english=step)
+        
+        # === EXTRACT patterns === (CRITICAL for cropping!)
+        if "extract" in step_lower or "crop" in step_lower:
+            return extract(english=step)
         
         return None
     
