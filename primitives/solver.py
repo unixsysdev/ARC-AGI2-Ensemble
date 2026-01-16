@@ -182,14 +182,16 @@ class PrimitivesSolver:
         self, 
         task: Any, 
         test_index: int = 0,
-        previous_feedback: list[str] = None
+        vlm_feedback: list[str] = None,
+        llm_feedback: list[str] = None
     ) -> tuple[Grid, list[str], Program]:
         """Solve with optional feedback from previous attempts.
         
         Args:
             task: ARC Task with training examples
             test_index: Which test case to solve
-            previous_feedback: List of failures from previous attempt
+            vlm_feedback: Feedback for VLM planner (None = no feedback)
+            llm_feedback: Feedback for LLM planner (None = no feedback)
             
         Returns:
             (predicted grid, list of step failures, program used)"""
@@ -201,10 +203,14 @@ class PrimitivesSolver:
         logger.info("Step 1: Generating plan...")
         if self.config.use_ensemble_planning:
             logger.info("  Using ENSEMBLE planner (VLM + LLM dual-path)")
-            english_plan = await self.ensemble_planner.generate_plan(task, previous_feedback)
+            english_plan = await self.ensemble_planner.generate_plan(
+                task, 
+                vlm_feedback=vlm_feedback,
+                llm_feedback=llm_feedback
+            )
         elif self.config.use_visual_planning:
             logger.info("  Using VISUAL planner (VLM with grid images)")
-            english_plan = await self.visual_planner.generate_plan(task, previous_feedback)
+            english_plan = await self.visual_planner.generate_plan(task, vlm_feedback)
         else:
             logger.info("  Using TEXT planner (English descriptions)")
             english_plan = await self.text_planner.plan(task)
@@ -229,7 +235,8 @@ class PrimitivesSolver:
         task: Any,
         test_index: int = 0,
         max_attempts: int = 3,
-        use_feedback: bool = True  # NEW: Optional feedback loop
+        vlm_feedback: bool = True,
+        llm_feedback: bool = True
     ) -> list[Grid]:
         """Solve with multiple attempts and LEARNING LOOP.
         
@@ -244,7 +251,8 @@ class PrimitivesSolver:
             task: ARC Task
             test_index: Which test to solve
             max_attempts: Maximum attempts
-            use_feedback: If True, send accumulated failures to planners (default: True)
+            vlm_feedback: If True, send failures to VLM planner (default: True)
+            llm_feedback: If True, send failures to LLM planner (default: True)
             
         Returns:
             List of candidate solutions (best first)
@@ -255,21 +263,31 @@ class PrimitivesSolver:
         # Set up run context for organized filmstrip output
         self.filmstrip_renderer.set_run_context(task.task_id)
         logger.info(f"  Run output: {self.filmstrip_renderer.output_dir}")
-        if not use_feedback:
-            logger.info("  Feedback loop DISABLED (--no-feedback)")
+        
+        # Log feedback settings
+        if not vlm_feedback and not llm_feedback:
+            logger.info("  Feedback DISABLED for both VLM and LLM")
+        elif not vlm_feedback:
+            logger.info("  Feedback DISABLED for VLM (LLM still gets feedback)")
+        elif not llm_feedback:
+            logger.info("  Feedback DISABLED for LLM (VLM still gets feedback)")
         
         for attempt in range(max_attempts):
             self.filmstrip_renderer.next_attempt()  # Increment attempt counter
             logger.info(f"Attempt {attempt + 1}/{max_attempts}")
             
-            # Pass accumulated failures as feedback (if enabled)
-            feedback = all_failures if (use_feedback and all_failures) else None
-            if feedback:
-                logger.info(f"  Using feedback from {len(feedback)} accumulated failures")
+            # Build feedback based on flags
+            feedback_for_vlm = all_failures if (vlm_feedback and all_failures) else None
+            feedback_for_llm = all_failures if (llm_feedback and all_failures) else None
+            
+            if feedback_for_vlm or feedback_for_llm:
+                logger.info(f"  Using feedback from {len(all_failures)} accumulated failures")
             
             try:
                 grid, step_failures, program = await self.solve_with_feedback(
-                    task, test_index, feedback
+                    task, test_index, 
+                    vlm_feedback=feedback_for_vlm,
+                    llm_feedback=feedback_for_llm
                 )
                 candidates.append(grid)
                 

@@ -161,22 +161,24 @@ CRITICAL:
     async def generate_plan(
         self, 
         task: Any, 
-        previous_feedback: list[str] = None
+        vlm_feedback: list[str] = None,
+        llm_feedback: list[str] = None
     ) -> str:
         """Generate plan using both VLM and LLM in parallel, then synthesize.
         
         Args:
             task: ARC Task with training examples
-            previous_feedback: Optional failures from previous attempt
+            vlm_feedback: Feedback for VLM planner (None = no feedback)
+            llm_feedback: Feedback for LLM planner (None = no feedback)
             
         Returns:
             Synthesized plan string
         """
         logger.info("[ENSEMBLE] Dual-path planning: VLM visual + LLM symbolic")
         
-        # Run both analyses in parallel - BOTH now receive feedback
-        visual_task = self._get_visual_analysis(task, previous_feedback)
-        symbolic_task = self._get_symbolic_analysis(task, previous_feedback)
+        # Run both analyses in parallel with SEPARATE feedback
+        visual_task = self._get_visual_analysis(task, vlm_feedback)
+        symbolic_task = self._get_symbolic_analysis(task, llm_feedback)
         
         try:
             visual_plan, symbolic_plan = await asyncio.gather(
@@ -187,7 +189,7 @@ CRITICAL:
         except Exception as e:
             logger.warning(f"Parallel analysis failed: {e}")
             # Fallback to visual only
-            return await self.visual_planner.generate_plan(task, previous_feedback)
+            return await self.visual_planner.generate_plan(task, vlm_feedback)
         
         # Handle individual failures
         if isinstance(visual_plan, Exception):

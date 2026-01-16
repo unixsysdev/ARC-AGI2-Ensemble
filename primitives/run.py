@@ -113,8 +113,10 @@ Examples:
     )
     parser.add_argument(
         "--no-feedback",
-        action="store_true",
-        help="Disable feedback loop between attempts (each attempt starts fresh)"
+        nargs="?",
+        const="all",
+        choices=["all", "llm", "vlm"],
+        help="Disable feedback: 'all' (default), 'llm' only, or 'vlm' only"
     )
     
     # Output options
@@ -174,14 +176,26 @@ Examples:
     task = Task.from_json(task_path)
     logger.info(f"Loaded task with {len(task.train)} training examples")
     
-    # Solve
+    # Parse feedback flags
+    vlm_feedback = True
+    llm_feedback = True
+    if args.no_feedback:
+        if args.no_feedback == "all":
+            vlm_feedback = False
+            llm_feedback = False
+        elif args.no_feedback == "vlm":
+            vlm_feedback = False
+        elif args.no_feedback == "llm":
+            llm_feedback = False
+    
     async with ChutesClient(config) as client:
         solver = PrimitivesSolver(client, config)
         candidates = await solver.solve_with_retry(
             task,
             test_index=args.test_index,
             max_attempts=args.attempts,
-            use_feedback=not args.no_feedback  # Default: True (feedback ON)
+            vlm_feedback=vlm_feedback,
+            llm_feedback=llm_feedback
         )
     
     if candidates:
