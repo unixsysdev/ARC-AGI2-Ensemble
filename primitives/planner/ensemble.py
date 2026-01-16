@@ -84,43 +84,53 @@ gravity(direction="down"|"up"|"left"|"right")
 CRITICAL: For flood_fill, ALWAYS include target_color parameter!
 """
 
-    SYNTHESIS_PROMPT = """You have TWO proposed DSL programs for the same ARC puzzle:
+    # Meta-Reviewer prompt: SELECT the best expert, don't just merge
+    SELECTION_PROMPT = """You are the LEAD ARCHITECT solving an ARC-AGI puzzle. 
 
-## VISUAL PROPOSAL (VLM analyzing grid images):
+You have TWO CANDIDATE SOLUTIONS from different experts:
+
+═══════════════════════════════════════════════════════════════════════════════
+## CANDIDATE A: VISUAL EXPERT (VLM)
+*Strengths: Seeing topology, holes, enclosed regions, gravity, adjacency, shapes*
 {visual_plan}
-
-## SYMBOLIC PROPOSAL (LLM analyzing grid numbers):
+═══════════════════════════════════════════════════════════════════════════════
+## CANDIDATE B: SYMBOLIC EXPERT (LLM)  
+*Strengths: Counting, arithmetic, sorting, exact color codes, coordinate math*
 {symbolic_plan}
+═══════════════════════════════════════════════════════════════════════════════
 
-TASK: Synthesize the BEST unified DSL program.
+## DECISION PROTOCOL - Choose which expert to trust:
 
-RULES:
-1. If both agree on an approach, use it
-2. If VLM uses flood_fill with target_color - this is usually correct for enclosed regions
-3. If LLM found a specific color pattern - incorporate it
-4. ALWAYS include target_color in flood_fill calls (usually 0 for background)
+**TRUST VISUAL (A) for:**
+- "Fill holes", "Enclosed areas", "Inside/Outside" → VLM sees topology
+- "Gravity", "Falling objects" → VLM sees physics layout
+- "Connected components", "Touching/Adjacent" → VLM sees relationships
+- flood_fill operations → VLM understands what's "inside"
 
-AVAILABLE PRIMITIVES:
-- select(criteria="color"|"connected"|"enclosed", value=N)
-- paint(color=N)
-- replace(source_color=A, target_color=B)
-- flood_fill(color=N, start_position="border", target_color=0)
-- transform(action="rotate_90"|"flip_horizontal"|etc)
-- gravity(direction="down"|"up"|"left"|"right")
+**TRUST SYMBOLIC (B) for:**
+- Counting ("3 red pixels"), Sequences, Arithmetic
+- Exact color mapping ("Replace 1 with 6") → VLM often hallucinates colors
+- Coordinate math ("Move 3 right", "Every 2nd row")
+- Sorting by size, filtering by count
 
-OUTPUT FORMAT:
+**HYBRID FIX:** If task is topological (A's domain) but A has wrong colors:
+→ Use A's STRUCTURE/ALGORITHM + B's COLOR CODES
 
-### Reasoning
-[1-2 sentences on which approach is better and why]
+## YOUR OUTPUT:
+
+### Expert Selection
+[Which expert (A/B) is better for this task and why - 1-2 sentences]
 
 ### Final DSL Program
 ```dsl
-1. first_primitive(params)
-2. second_primitive(params)
-...
+1. function_call(params)
+2. next_function(params)
 ```
 
-Max 5 steps. Use EXACT function syntax.
+CRITICAL: 
+- For flood_fill, ALWAYS include target_color (usually 0)
+- Max 5 steps
+- Use EXACT function syntax from the candidates
 """
 
     def __init__(self, client: Any, config: Config):
@@ -181,8 +191,8 @@ Max 5 steps. Use EXACT function syntax.
         logger.info(f"[ENSEMBLE] VLM DSL: {len(str(visual_plan))} chars")
         logger.info(f"[ENSEMBLE] LLM DSL: {len(str(symbolic_plan))} chars")
         
-        # Synthesize the two analyses
-        unified_plan = await self._synthesize(visual_plan, symbolic_plan)
+        # Meta-Reviewer selects the best expert (not just merge)
+        unified_plan = await self._select_best_expert(visual_plan, symbolic_plan)
         
         return unified_plan
     
@@ -224,28 +234,37 @@ Max 5 steps. Use EXACT function syntax.
         logger.info(f"[LLM SYMBOLIC] Response: {len(response)} chars")
         return response
     
-    async def _synthesize(self, visual_plan: str, symbolic_plan: str) -> str:
-        """Synthesize visual and symbolic analyses into unified plan."""
-        prompt = self.SYNTHESIS_PROMPT.format(
+    async def _select_best_expert(self, visual_plan: str, symbolic_plan: str) -> str:
+        """Select the best expert solution (not just merge).
+        
+        The Meta-Reviewer acts as a Judge, choosing:
+        - Visual Expert (VLM) for topology, holes, gravity
+        - Symbolic Expert (LLM) for counting, math, color codes
+        - Or a HYBRID fix using VLM structure + LLM colors
+        """
+        prompt = self.SELECTION_PROMPT.format(
             visual_plan=visual_plan,
             symbolic_plan=symbolic_plan
         )
         
         messages = [
-            {"role": "system", "content": "You synthesize multiple ARC puzzle analyses into one plan."},
+            {"role": "system", "content": "You are a Lead Architect selecting the best ARC solution from two experts."},
             {"role": "user", "content": prompt}
         ]
+        
+        logger.info(f"[META-REVIEWER] Model: {self.coder_model.name}")
+        logger.info(f"[META-REVIEWER] Selecting best expert (Visual vs Symbolic)...")
         
         try:
             response = await self.client.chat(
                 self.coder_model,
                 messages,
-                temperature=0.2
+                temperature=0.1  # Low temp for strict selection
             )
-            logger.info("Ensemble synthesis complete")
+            logger.info(f"[META-REVIEWER] Selection complete: {len(response)} chars")
             return response
         except Exception as e:
-            logger.warning(f"Synthesis failed: {e}, using visual plan")
+            logger.warning(f"[META-REVIEWER] Selection failed: {e}, using visual plan")
             return visual_plan
     
     def _format_grid(self, grid: list[list[int]]) -> str:
