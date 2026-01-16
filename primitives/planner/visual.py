@@ -28,6 +28,7 @@ Each example shows INPUT grid (left) → OUTPUT grid (right).
 2. What CHANGES between input and output?
 3. What STAYS THE SAME? (invariants)
 4. What SPATIAL RELATIONSHIPS exist? (enclosed, touching, aligned)
+5. Does the OUTPUT SIZE match the INPUT SIZE? If not, we need extract()!
 
 ## STEP 2: GENERATE DSL PROGRAM
 Translate your visual understanding DIRECTLY into these executable primitives:
@@ -47,7 +48,10 @@ paint(color=N)                               # Paint selected cells with color N
 replace(source_color=A, target_color=B)      # Replace color A with B everywhere
 
 # Flood Fill (CRITICAL: always specify target_color!)
-flood_fill(color=N, start_position="border", target_color=0)  # Fill from border, replacing 0s
+flood_fill(color=N, start_position="border", target_color=0)  # Fill from border
+
+# Extraction (USE WHEN OUTPUT IS SMALLER THAN INPUT!)
+extract()                                    # Crop grid to selection bounding box
 
 # Transformations
 transform(action="rotate_90")
@@ -64,13 +68,13 @@ gravity(direction="down")                    # Drop objects in direction
 
 ### DSL Program
 ```dsl
-1. select(criteria="color", value=0)
-2. flood_fill(color=5, start_position="border", target_color=0)
-3. replace(source_color=0, target_color=4)
-4. replace(source_color=5, target_color=0)
+1. select(criteria="color", value=3)
+2. select(criteria="largest")
+3. extract()
 ```
 
 CRITICAL RULES:
+- If OUTPUT is SMALLER than INPUT → use extract() to crop!
 - Use EXACT function syntax shown above
 - Max 5 steps
 - For flood_fill, ALWAYS specify target_color (usually 0 for background)

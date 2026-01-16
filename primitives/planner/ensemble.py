@@ -45,10 +45,11 @@ OUTPUT GRID (expected result):
 COLOR KEY: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 8=cyan, 9=brown
 
 ## ANALYZE SYMBOLICALLY:
-1. What colors appear in input vs output?
-2. What cells CHANGE? What cells STAY THE SAME?
-3. Is there a pattern like: "all X become Y" or "cells surrounded by X become Y"?
-4. Count objects, check for symmetry, look for enclosed regions.
+1. Compare INPUT SIZE vs OUTPUT SIZE - if different, we need extract()!
+2. What colors appear in input vs output?
+3. What cells CHANGE? What cells STAY THE SAME?
+4. Is there a pattern like: "all X become Y" or "cells surrounded by X become Y"?
+5. Count objects, check for symmetry, look for enclosed regions.
 
 ## GENERATE DSL PROGRAM using these primitives:
 
@@ -56,6 +57,8 @@ COLOR KEY: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 
 # Selection
 select(criteria="color", value=N)           # Select cells of color N
 select(criteria="connected")                 # Find connected components
+select(criteria="largest")                   # Select largest object
+select(criteria="smallest")                  # Select smallest object
 select(criteria="enclosed", enclosing_color=N)  # Regions enclosed by color N
 
 # Painting
@@ -64,6 +67,9 @@ replace(source_color=A, target_color=B)      # Replace A with B everywhere
 
 # Flood Fill (CRITICAL: always specify target_color!)
 flood_fill(color=N, start_position="border", target_color=0)
+
+# Extraction (USE WHEN OUTPUT IS SMALLER THAN INPUT!)
+extract()                                    # Crop grid to selection bounding box
 
 # Transformations
 transform(action="rotate_90"|"flip_horizontal"|etc)
@@ -81,7 +87,9 @@ gravity(direction="down"|"up"|"left"|"right")
 2. next_function(param=value)
 ```
 
-CRITICAL: For flood_fill, ALWAYS include target_color parameter!
+CRITICAL: 
+- If OUTPUT SIZE != INPUT SIZE → use extract()!
+- For flood_fill, ALWAYS include target_color parameter!
 """
 
     # Meta-Reviewer prompt: SELECT the best expert, don't just merge
@@ -112,6 +120,7 @@ You have TWO CANDIDATE SOLUTIONS from different experts:
 - Exact color mapping ("Replace 1 with 6") → VLM often hallucinates colors
 - Coordinate math ("Move 3 right", "Every 2nd row")
 - Sorting by size, filtering by count
+- SIZE CHANGES (output smaller than input) → use extract()
 
 **HYBRID FIX:** If task is topological (A's domain) but A has wrong colors:
 → Use A's STRUCTURE/ALGORITHM + B's COLOR CODES
@@ -128,6 +137,7 @@ You have TWO CANDIDATE SOLUTIONS from different experts:
 ```
 
 CRITICAL: 
+- If OUTPUT SIZE != INPUT SIZE → use extract()!
 - For flood_fill, ALWAYS include target_color (usually 0)
 - Max 5 steps
 - Use EXACT function syntax from the candidates
