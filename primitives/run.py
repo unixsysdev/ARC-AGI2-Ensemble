@@ -122,7 +122,12 @@ Examples:
         "--feedback-limit",
         type=int,
         default=None,
-        help="Limit feedback to last N failures (default: all). Use 1 for only last attempt's failures"
+        help="Limit feedback to last N failures. Default: all. Use 'auto' via --feedback-last-attempt"
+    )
+    parser.add_argument(
+        "--feedback-last-attempt",
+        action="store_true",
+        help="Only use last attempt's failures (auto-sets limit = num_training_examples)"
     )
     
     # Output options
@@ -194,6 +199,12 @@ Examples:
         elif args.no_feedback == "llm":
             llm_feedback = False
     
+    # Auto-set feedback limit to training examples count
+    feedback_limit = args.feedback_limit
+    if args.feedback_last_attempt:
+        feedback_limit = len(task.train)
+        logger.info(f"--feedback-last-attempt: limiting to last {feedback_limit} failures (= training examples)")
+    
     async with ChutesClient(config) as client:
         solver = PrimitivesSolver(client, config)
         candidates = await solver.solve_with_retry(
@@ -202,7 +213,7 @@ Examples:
             max_attempts=args.attempts,
             vlm_feedback=vlm_feedback,
             llm_feedback=llm_feedback,
-            feedback_limit=args.feedback_limit
+            feedback_limit=feedback_limit
         )
     
     if candidates:
