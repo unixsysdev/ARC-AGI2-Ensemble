@@ -118,6 +118,12 @@ Examples:
         choices=["all", "llm", "vlm"],
         help="Disable feedback: 'all' (default), 'llm' only, or 'vlm' only"
     )
+    parser.add_argument(
+        "--feedback-limit",
+        type=int,
+        default=None,
+        help="Limit feedback to last N failures (default: all). Use 1 for only last attempt's failures"
+    )
     
     # Output options
     parser.add_argument(
@@ -195,7 +201,8 @@ Examples:
             test_index=args.test_index,
             max_attempts=args.attempts,
             vlm_feedback=vlm_feedback,
-            llm_feedback=llm_feedback
+            llm_feedback=llm_feedback,
+            feedback_limit=args.feedback_limit
         )
     
     if candidates:

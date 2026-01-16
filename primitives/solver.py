@@ -236,7 +236,8 @@ class PrimitivesSolver:
         test_index: int = 0,
         max_attempts: int = 3,
         vlm_feedback: bool = True,
-        llm_feedback: bool = True
+        llm_feedback: bool = True,
+        feedback_limit: int = None
     ) -> list[Grid]:
         """Solve with multiple attempts and LEARNING LOOP.
         
@@ -253,6 +254,7 @@ class PrimitivesSolver:
             max_attempts: Maximum attempts
             vlm_feedback: If True, send failures to VLM planner (default: True)
             llm_feedback: If True, send failures to LLM planner (default: True)
+            feedback_limit: If set, only include last N failures (default: all)
             
         Returns:
             List of candidate solutions (best first)
@@ -271,17 +273,22 @@ class PrimitivesSolver:
             logger.info("  Feedback DISABLED for VLM (LLM still gets feedback)")
         elif not llm_feedback:
             logger.info("  Feedback DISABLED for LLM (VLM still gets feedback)")
+        if feedback_limit:
+            logger.info(f"  Feedback LIMITED to last {feedback_limit} failures")
         
         for attempt in range(max_attempts):
             self.filmstrip_renderer.next_attempt()  # Increment attempt counter
             logger.info(f"Attempt {attempt + 1}/{max_attempts}")
             
+            # Apply limit if set (take last N failures)
+            limited_failures = all_failures[-feedback_limit:] if feedback_limit else all_failures
+            
             # Build feedback based on flags
-            feedback_for_vlm = all_failures if (vlm_feedback and all_failures) else None
-            feedback_for_llm = all_failures if (llm_feedback and all_failures) else None
+            feedback_for_vlm = limited_failures if (vlm_feedback and limited_failures) else None
+            feedback_for_llm = limited_failures if (llm_feedback and limited_failures) else None
             
             if feedback_for_vlm or feedback_for_llm:
-                logger.info(f"  Using feedback from {len(all_failures)} accumulated failures")
+                logger.info(f"  Using feedback from {len(limited_failures)} failures (of {len(all_failures)} total)")
             
             try:
                 grid, step_failures, program = await self.solve_with_feedback(
