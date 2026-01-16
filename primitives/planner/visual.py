@@ -92,7 +92,7 @@ IMPORTANT: Keep steps SIMPLE. Max 5 steps. Use color names or numbers.
             String containing the step-by-step plan
         """
         # Import visualizer from arc_solver
-        from src.critic.visualizer import GridVisualizer
+        from systems.critic.visualizer import GridVisualizer
         
         visualizer = GridVisualizer()
         
@@ -188,7 +188,7 @@ STEP 3: OUTPUT the result
         Falls back to single image if multi-image fails.
         """
         # Import visualizer and matplotlib
-        from src.critic.visualizer import GridVisualizer
+        from systems.critic.visualizer import GridVisualizer
         import matplotlib.pyplot as plt
         import matplotlib.image as mpimg
         
