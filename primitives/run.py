@@ -177,11 +177,14 @@ Examples:
         config.vlm_model = ModelConfig(name=args.vlm_model, max_tokens=4096, temperature=0.3)
         logger.info(f"VLM model: {args.vlm_model}")
     
-    if args.llm_model:
+    # Default LLM to VLM model if not specified
+    llm_model = args.llm_model or args.vlm_model
+    if llm_model:
         from primitives.config import ModelConfig
-        config.coder_model = ModelConfig(name=args.llm_model, max_tokens=4096, temperature=0.2)
-        config.reasoner_model = ModelConfig(name=args.llm_model, max_tokens=8192, temperature=0.4)
-        logger.info(f"LLM model: {args.llm_model}")
+        config.coder_model = ModelConfig(name=llm_model, max_tokens=4096, temperature=0.2)
+        config.reasoner_model = ModelConfig(name=llm_model, max_tokens=8192, temperature=0.4)
+        config.llm_model = ModelConfig(name=llm_model, max_tokens=4096, temperature=0.3)
+        logger.info(f"LLM model: {llm_model}")
     
     # Load task
     task_path = config.data_dir / args.split / f"{args.task_id}.json"
