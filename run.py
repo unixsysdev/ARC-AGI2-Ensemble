@@ -7,6 +7,7 @@ Two solver modes:
 """
 
 import argparse
+import asyncio
 import sys
 
 
@@ -40,17 +41,17 @@ Examples:
     args, remaining = parser.parse_known_args()
     
     if args.solver == "systems":
-        # Import and run systems solver
+        # Import and run systems solver (async)
         sys.argv = [sys.argv[0]] + remaining
         from systems.run import main as systems_main
-        systems_main()
+        asyncio.run(systems_main())
     else:
-        # Import and run primitives solver
+        # Import and run primitives solver (async)
         sys.argv = [sys.argv[0]] + remaining
-        import asyncio
-        from run_primitives import main as primitives_main
+        from primitives.run import main as primitives_main
         asyncio.run(primitives_main())
 
 
 if __name__ == "__main__":
     main()
+
