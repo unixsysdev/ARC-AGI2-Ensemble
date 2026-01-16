@@ -351,7 +351,16 @@ class PrimitivesSolver:
                 
                 # Check dimensions
                 if len(actual) != len(expected_output) or len(actual[0]) != len(expected_output[0]):
-                    failures.append(f"Train {i+1}: Size {len(actual)}x{len(actual[0])} != expected {len(expected_output)}x{len(expected_output[0])}")
+                    actual_h, actual_w = len(actual), len(actual[0])
+                    exp_h, exp_w = len(expected_output), len(expected_output[0])
+                    
+                    msg = f"Train {i+1}: Size {actual_h}x{actual_w} != expected {exp_h}x{exp_w}"
+                    
+                    # CRITICAL: If expected is SMALLER, tell them to use extract()!
+                    if exp_h < actual_h or exp_w < actual_w:
+                        msg += f" → USE EXTRACT() to crop output to selection bounding box!"
+                    
+                    failures.append(msg)
                     continue
                 
                 # Cell-by-cell comparison with detail
