@@ -164,9 +164,9 @@ CRITICAL:
         """
         logger.info("[ENSEMBLE] Dual-path planning: VLM visual + LLM symbolic")
         
-        # Run both analyses in parallel
+        # Run both analyses in parallel - BOTH now receive feedback
         visual_task = self._get_visual_analysis(task, previous_feedback)
-        symbolic_task = self._get_symbolic_analysis(task)
+        symbolic_task = self._get_symbolic_analysis(task, previous_feedback)
         
         try:
             visual_plan, symbolic_plan = await asyncio.gather(
@@ -204,8 +204,15 @@ CRITICAL:
         """Get VLM visual analysis."""
         return await self.visual_planner.generate_plan(task, previous_feedback)
     
-    async def _get_symbolic_analysis(self, task: Any) -> str:
-        """Get LLM symbolic analysis from grid data."""
+    async def _get_symbolic_analysis(
+        self, 
+        task: Any,
+        previous_feedback: list[str] = None
+    ) -> str:
+        """Get LLM symbolic analysis from grid data.
+        
+        Now also receives feedback from previous attempts to learn from failures.
+        """
         # Use first training example
         pair = task.train[0]
         
@@ -217,6 +224,18 @@ CRITICAL:
             input_grid=input_str,
             output_grid=output_str
         )
+        
+        # Add feedback from previous failures (same as VLM gets)
+        if previous_feedback:
+            feedback_text = "\n".join(previous_feedback[:3])  # Limit to top 3
+            prompt += f"""
+
+IMPORTANT - PREVIOUS ATTEMPT FAILED:
+{feedback_text}
+
+Learn from these failures and try a DIFFERENT approach. The previous solution was WRONG.
+"""
+            logger.info(f"[LLM SYMBOLIC] Including feedback from {len(previous_feedback)} failures")
         
         messages = [
             {"role": "system", "content": "You are an expert at ARC-AGI puzzles. Analyze grids logically."},
