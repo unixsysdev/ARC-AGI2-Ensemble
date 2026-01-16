@@ -264,7 +264,11 @@ class LogicJudge:
     - Primitive executed without error
     - Grid is valid (correct dimensions, valid colors)
     - Selections are consistent
+    - Heuristic checks for obvious problems
     """
+    
+    # Primitives that are simple enough to skip VLM verification
+    SIMPLE_PRIMITIVES = {'paint', 'select'}
     
     def verify_step(
         self,
@@ -300,3 +304,82 @@ class LogicJudge:
                 return False, f"Selection mask shape mismatch: {sel.mask.shape} vs {arr.shape}"
         
         return True, "Logic check passed"
+    
+    def get_confidence_score(
+        self,
+        prev_state: "ExecutionState",
+        curr_state: "ExecutionState"
+    ) -> tuple[float, str]:
+        """Calculate confidence that this step is correct.
+        
+        Returns (score, reason) where score is 0.0-1.0.
+        High confidence = less need for VLM verification.
+        """
+        import numpy as np
+        
+        prev_arr = np.array(prev_state.grid)
+        curr_arr = np.array(curr_state.grid)
+        
+        issues = []
+        score = 1.0
+        
+        # Check 1: Unexpected dimension change
+        if prev_arr.shape != curr_arr.shape:
+            # Some primitives (EXTRACT, SCALE) change dimensions - check if expected
+            if curr_state.primitive and curr_state.primitive.type.value in ['extract', 'transform']:
+                pass  # Expected
+            else:
+                issues.append(f"Unexpected dimension change: {prev_arr.shape} -> {curr_arr.shape}")
+                score -= 0.3
+        
+        # Check 2: Drastic color count change
+        prev_colors = set(prev_arr.flatten().tolist())
+        curr_colors = set(curr_arr.flatten().tolist())
+        new_colors = curr_colors - prev_colors
+        lost_colors = prev_colors - curr_colors
+        
+        if len(new_colors) > 3:
+            issues.append(f"Many new colors introduced: {new_colors}")
+            score -= 0.2
+        
+        # Check 3: Total grid value change (too much or too little)
+        prev_nonzero = np.count_nonzero(prev_arr)
+        curr_nonzero = np.count_nonzero(curr_arr)
+        
+        if prev_nonzero > 0:
+            ratio = curr_nonzero / prev_nonzero
+            if ratio > 5:
+                issues.append(f"Grid fill increased drastically: {ratio:.1f}x")
+                score -= 0.2
+            elif ratio < 0.1:
+                issues.append(f"Grid mostly cleared: {ratio:.1f}x")
+                score -= 0.2
+        
+        # Check 4: SELECT should not change grid
+        if curr_state.primitive and curr_state.primitive.type.value == 'select':
+            if not np.array_equal(prev_arr, curr_arr):
+                issues.append("SELECT changed the grid (should only create selection)")
+                score -= 0.5
+        
+        # Check 5: Simple primitives get bonus confidence
+        if curr_state.primitive and curr_state.primitive.type.value in self.SIMPLE_PRIMITIVES:
+            score = min(1.0, score + 0.1)
+        
+        reason = "; ".join(issues) if issues else "All heuristics passed"
+        return max(0.0, min(1.0, score)), reason
+    
+    def should_skip_vlm(
+        self,
+        prev_state: "ExecutionState",
+        curr_state: "ExecutionState",
+        threshold: float = 0.8
+    ) -> bool:
+        """Determine if VLM verification can be skipped based on confidence."""
+        score, _ = self.get_confidence_score(prev_state, curr_state)
+        
+        # Skip VLM for simple primitives with high confidence
+        if curr_state.primitive and curr_state.primitive.type.value in self.SIMPLE_PRIMITIVES:
+            return score >= 0.9
+        
+        return score >= threshold
+

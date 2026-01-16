@@ -224,9 +224,17 @@ class ExtractParams:
 
 @dataclass
 class GravityParams:
-    """Parameters for GRAVITY primitive."""
-    direction: str = "down"  # "up", "down", "left", "right"
-    stop_at_color: int | None = None  # Stop when hitting this color (None = stop at any non-zero)
+    """Parameters for GRAVITY primitive.
+    
+    Args:
+        direction: "up", "down", "left", "right"
+        stop_at_color: Stop when hitting this color (None = stop at any non-zero)
+        rigid: If True, move connected components as rigid bodies.
+               If False, individual pixels fall like sand.
+    """
+    direction: str = "down"
+    stop_at_color: int | None = None
+    rigid: bool = True  # Rigid body physics by default
 
 
 @dataclass
@@ -337,10 +345,17 @@ def extract(padding: int = 0, english: str = "") -> Primitive:
 
 
 def gravity(direction: str = "down", stop_at_color: int | None = None, 
-            english: str = "") -> Primitive:
-    """Create a GRAVITY primitive."""
+            rigid: bool = True, english: str = "") -> Primitive:
+    """Create a GRAVITY primitive.
+    
+    Args:
+        direction: "up", "down", "left", "right"
+        stop_at_color: Stop when hitting this color (None = any non-zero)
+        rigid: If True, move connected components as units. If False, sand physics.
+        english: Human-readable description
+    """
     return Primitive(
         type=PrimitiveType.GRAVITY,
-        params=GravityParams(direction=direction, stop_at_color=stop_at_color),
-        english=english or f"Apply gravity: {direction}"
+        params=GravityParams(direction=direction, stop_at_color=stop_at_color, rigid=rigid),
+        english=english or f"Apply gravity: {direction}{' (sand)' if not rigid else ''}"
     )

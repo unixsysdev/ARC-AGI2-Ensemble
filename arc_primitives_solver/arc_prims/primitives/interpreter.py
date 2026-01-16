@@ -775,7 +775,12 @@ class PrimitiveInterpreter:
         state: ExecutionState,
         primitive: Primitive
     ) -> ExecutionState:
-        """Execute GRAVITY primitive to drop objects in direction."""
+        """Execute GRAVITY primitive to drop objects in direction.
+        
+        Two physics modes:
+        - rigid=True: Connected components move as units (objects stay intact)
+        - rigid=False: Individual pixels fall like sand
+        """
         params: GravityParams = primitive.params
         arr = np.array(state.grid)
         h, w = arr.shape
@@ -790,59 +795,146 @@ class PrimitiveInterpreter:
         
         new_grid = arr.copy()
         
-        # Build list of (position, value) pairs from movable cells
-        movable_cells = []  # List of ((r, c), value)
-        rows, cols = np.where(move_mask)
-        for r, c in zip(rows, cols):
-            movable_cells.append(((r, c), arr[r, c]))
-        
-        # Clear movable cells from grid
-        new_grid[move_mask] = 0
-        
-        # Sort by direction (process cells furthest in direction of gravity first)
+        # Get direction delta
         if params.direction == "down":
-            movable_cells.sort(key=lambda x: -x[0][0])  # Bottom to top
             delta = (1, 0)
         elif params.direction == "up":
-            movable_cells.sort(key=lambda x: x[0][0])  # Top to bottom
             delta = (-1, 0)
         elif params.direction == "right":
-            movable_cells.sort(key=lambda x: -x[0][1])  # Right to left
             delta = (0, 1)
         elif params.direction == "left":
-            movable_cells.sort(key=lambda x: x[0][1])  # Left to right
             delta = (0, -1)
         else:
             delta = (1, 0)  # Default down
         
-        # Move each cell
-        for (r, c), value in movable_cells:
-            new_r, new_c = r, c
+        if params.rigid:
+            # === RIGID BODY PHYSICS ===
+            # Move connected components as single units
             
-            # Fall until blocked
-            while True:
-                next_r = new_r + delta[0]
-                next_c = new_c + delta[1]
+            # Find connected components within the movable mask
+            labeled, num_features = ndimage.label(move_mask)
+            
+            if num_features == 0:
+                return state.copy()
+            
+            # Sort components by proximity to "floor" (furthest in gravity direction first)
+            component_order = []
+            for i in range(1, num_features + 1):
+                comp_mask = labeled == i
+                rows, cols = np.where(comp_mask)
                 
-                # Check bounds
-                if not (0 <= next_r < h and 0 <= next_c < w):
-                    break
-                
-                # Check if blocked
-                blocking = new_grid[next_r, next_c]
-                if params.stop_at_color is not None:
-                    if blocking == params.stop_at_color:
-                        break
+                if params.direction == "down":
+                    sort_key = rows.max()  # Lowest row first
+                elif params.direction == "up":
+                    sort_key = -rows.min()  # Highest row first
+                elif params.direction == "right":
+                    sort_key = cols.max()  # Rightmost first
+                elif params.direction == "left":
+                    sort_key = -cols.min()  # Leftmost first
                 else:
-                    if blocking != 0:
-                        break
+                    sort_key = 0
                 
-                new_r, new_c = next_r, next_c
+                component_order.append((i, sort_key))
             
-            new_grid[new_r, new_c] = value
+            component_order.sort(key=lambda x: -x[1])  # Process furthest first
+            
+            # Clear movable cells from grid before moving
+            new_grid[move_mask] = 0
+            
+            # Move each connected component as a unit
+            for comp_id, _ in component_order:
+                comp_mask = labeled == comp_id
+                rows, cols = np.where(comp_mask)
+                
+                if len(rows) == 0:
+                    continue
+                
+                # Get the component's values
+                comp_values = arr[comp_mask]
+                
+                # Find max distance this component can move before ANY pixel hits obstacle
+                max_dist = float('inf')
+                
+                for r, c in zip(rows, cols):
+                    dist = 0
+                    test_r, test_c = r + delta[0], c + delta[1]
+                    
+                    while True:
+                        # Check bounds
+                        if not (0 <= test_r < h and 0 <= test_c < w):
+                            break
+                        
+                        # Check if blocked (by something not in this component)
+                        blocking = new_grid[test_r, test_c]
+                        if blocking != 0:
+                            if params.stop_at_color is None or blocking == params.stop_at_color:
+                                break
+                        
+                        dist += 1
+                        test_r += delta[0]
+                        test_c += delta[1]
+                    
+                    max_dist = min(max_dist, dist)
+                
+                if max_dist == float('inf'):
+                    max_dist = 0
+                
+                # Move entire component by max_dist
+                for (r, c), value in zip(zip(rows, cols), comp_values):
+                    new_r = r + delta[0] * max_dist
+                    new_c = c + delta[1] * max_dist
+                    
+                    if 0 <= new_r < h and 0 <= new_c < w:
+                        new_grid[new_r, new_c] = value
+        
+        else:
+            # === SAND PHYSICS ===
+            # Individual pixels fall independently
+            
+            movable_cells = []
+            rows, cols = np.where(move_mask)
+            for r, c in zip(rows, cols):
+                movable_cells.append(((r, c), arr[r, c]))
+            
+            # Clear movable cells
+            new_grid[move_mask] = 0
+            
+            # Sort by direction (process cells furthest in direction first)
+            if params.direction == "down":
+                movable_cells.sort(key=lambda x: -x[0][0])
+            elif params.direction == "up":
+                movable_cells.sort(key=lambda x: x[0][0])
+            elif params.direction == "right":
+                movable_cells.sort(key=lambda x: -x[0][1])
+            elif params.direction == "left":
+                movable_cells.sort(key=lambda x: x[0][1])
+            
+            # Move each pixel
+            for (r, c), value in movable_cells:
+                new_r, new_c = r, c
+                
+                while True:
+                    next_r = new_r + delta[0]
+                    next_c = new_c + delta[1]
+                    
+                    if not (0 <= next_r < h and 0 <= next_c < w):
+                        break
+                    
+                    blocking = new_grid[next_r, next_c]
+                    if params.stop_at_color is not None:
+                        if blocking == params.stop_at_color:
+                            break
+                    else:
+                        if blocking != 0:
+                            break
+                    
+                    new_r, new_c = next_r, next_c
+                
+                new_grid[new_r, new_c] = value
         
         return ExecutionState(
             grid=new_grid.tolist(),
             selections=[]
         )
+
 
