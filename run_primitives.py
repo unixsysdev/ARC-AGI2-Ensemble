@@ -12,8 +12,8 @@ PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Import from shared src/
-from src.llms.chutes_client import ChutesClient
-from src.models.task import Task
+from systems.llms.chutes_client import ChutesClient
+from systems.models.task import Task
 
 # Import primitives modules
 from primitives.config import load_config, MODEL_PRESETS
