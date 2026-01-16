@@ -129,6 +129,11 @@ Examples:
         action="store_true",
         help="Only use last attempt's failures (auto-sets limit = num_training_examples)"
     )
+    parser.add_argument(
+        "--no-reason",
+        action="store_true",
+        help="Disable feedback reasoning (send raw failures only, skip LLM analysis)"
+    )
     
     # Output options
     parser.add_argument(
@@ -213,7 +218,8 @@ Examples:
             max_attempts=args.attempts,
             vlm_feedback=vlm_feedback,
             llm_feedback=llm_feedback,
-            feedback_limit=feedback_limit
+            feedback_limit=feedback_limit,
+            use_reasoning=not args.no_reason  # Default: True (reasoning ON)
         )
     
     if candidates:

@@ -17,6 +17,7 @@ from .config import Config
 from .primitives import PrimitiveInterpreter, ExecutionState, Program
 from .judge import UnifiedJudge, FilmstripRenderer
 from .planner import EnglishPlanner, PrimitiveTranslator, VisualPlanner
+from .planner.feedback_analyzer import FeedbackAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,9 @@ class PrimitivesSolver:
             config, 
             self.filmstrip_renderer
         )
+        
+        # Feedback analyzer for reasoning over failures
+        self.feedback_analyzer = FeedbackAnalyzer(client, config)
     
     async def solve(self, task: Any, test_index: int = 0) -> Grid:
         """Solve a single test case.
@@ -237,7 +241,8 @@ class PrimitivesSolver:
         max_attempts: int = 3,
         vlm_feedback: bool = True,
         llm_feedback: bool = True,
-        feedback_limit: int = None
+        feedback_limit: int = None,
+        use_reasoning: bool = True
     ) -> list[Grid]:
         """Solve with multiple attempts and LEARNING LOOP.
         
@@ -255,12 +260,14 @@ class PrimitivesSolver:
             vlm_feedback: If True, send failures to VLM planner (default: True)
             llm_feedback: If True, send failures to LLM planner (default: True)
             feedback_limit: If set, only include last N failures (default: all)
+            use_reasoning: If True, use LLM to reason over failures (default: True)
             
         Returns:
             List of candidate solutions (best first)
         """
         candidates = []
         all_failures = []  # Accumulate ALL failures across attempts
+        reasoned_advice = ""  # Synthesized recommendation from analyzer
         
         # Set up run context for organized filmstrip output
         self.filmstrip_renderer.set_run_context(task.task_id)
@@ -275,6 +282,8 @@ class PrimitivesSolver:
             logger.info("  Feedback DISABLED for LLM (VLM still gets feedback)")
         if feedback_limit:
             logger.info(f"  Feedback LIMITED to last {feedback_limit} failures")
+        if use_reasoning:
+            logger.info("  Feedback REASONING enabled (LLM will analyze failures)")
         
         for attempt in range(max_attempts):
             self.filmstrip_renderer.next_attempt()  # Increment attempt counter
@@ -283,18 +292,34 @@ class PrimitivesSolver:
             # Apply limit if set (take last N failures)
             limited_failures = all_failures[-feedback_limit:] if feedback_limit else all_failures
             
-            # Build feedback based on flags
-            feedback_for_vlm = limited_failures if (vlm_feedback and limited_failures) else None
-            feedback_for_llm = limited_failures if (llm_feedback and limited_failures) else None
+            # Generate reasoned advice if enabled and we have failures
+            if use_reasoning and limited_failures and not reasoned_advice:
+                reasoned_advice = await self.feedback_analyzer.analyze(limited_failures)
             
-            if feedback_for_vlm or feedback_for_llm:
+            # Build feedback: raw + reasoned advice
+            combined_feedback_vlm = None
+            combined_feedback_llm = None
+            
+            if vlm_feedback and limited_failures:
+                combined_feedback_vlm = limited_failures.copy()
+                if reasoned_advice:
+                    combined_feedback_vlm.insert(0, f"[ANALYSIS] {reasoned_advice}")
+            
+            if llm_feedback and limited_failures:
+                combined_feedback_llm = limited_failures.copy()
+                if reasoned_advice:
+                    combined_feedback_llm.insert(0, f"[ANALYSIS] {reasoned_advice}")
+            
+            if combined_feedback_vlm or combined_feedback_llm:
                 logger.info(f"  Using feedback from {len(limited_failures)} failures (of {len(all_failures)} total)")
+                if reasoned_advice:
+                    logger.info(f"  + Reasoned advice: {reasoned_advice[:80]}...")
             
             try:
                 grid, step_failures, program = await self.solve_with_feedback(
                     task, test_index, 
-                    vlm_feedback=feedback_for_vlm,
-                    llm_feedback=feedback_for_llm
+                    vlm_feedback=combined_feedback_vlm,
+                    llm_feedback=combined_feedback_llm
                 )
                 candidates.append(grid)
                 
@@ -309,6 +334,8 @@ class PrimitivesSolver:
                     # Add to accumulated failures
                     all_failures.extend(training_failures)
                     all_failures.extend(step_failures)
+                    # Reset reasoned advice so we re-analyze with new failures
+                    reasoned_advice = ""
                 else:
                     # Solution works on ALL training examples!
                     logger.info("  ✓ VALIDATION PASSED: Correct on all training examples!")
