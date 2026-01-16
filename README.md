@@ -105,6 +105,61 @@ The solver must:
 
 ---
 
+## 🧩 Primitives DSL Solver
+
+A second solver approach using **generic primitives** with **step-by-step VLM verification** and a **learning feedback loop**.
+
+### Architecture
+
+![Primitives Architecture](primitives/docs/architecture.png)
+
+**Data Flow:**
+1. Input ARC task → VisualPlanner (VLM) → Natural language plan
+2. PrimitiveTranslator (LLM) → DSL primitives
+3. PrimitiveInterpreter → ExecutionState changes
+4. UnifiedJudge + FilmstripGenerator → VLM verification
+5. Pass/Fail → Learning loop or final output
+
+### Available Primitives
+
+| Primitive | Purpose | Example |
+|-----------|---------|---------|
+| `SELECT` | Find objects | `SELECT all green cells` |
+| `TRANSFORM` | Geometry | `ROTATE 90 degrees` |
+| `PAINT` | Colors | `PAINT with yellow` |
+| `FILTER` | Refine | `FILTER keep only border` |
+| `COMPOSITE` | Combine | `OVERLAY on background` |
+| `COPY` | Duplicate | `COPY selection` |
+| `EXTRACT` | Crop | `EXTRACT bounding box` |
+| `GRAVITY` | Drop | `GRAVITY down` |
+| `FLOOD_FILL` | Fill regions | `FLOOD_FILL from border with grey` |
+
+### Running the Primitives Solver
+
+```bash
+# Basic run with visual planning
+python run_primitives.py --task-id 00d62c1b --preset fast --visual-planning
+
+# Ensemble mode (VLM + LLM dual-path analysis)
+python run_primitives.py --task-id 00d62c1b --ensemble --attempts 3
+
+# Custom models
+python run_primitives.py --task-id 00d62c1b \
+  --vlm-model "Qwen/Qwen2.5-VL-72B-Instruct" \
+  --llm-model "openai/gpt-oss-120b-TEE" \
+  --ensemble --attempts 3
+```
+
+### Model Presets
+
+| Preset | Text Model | VLM | Speed |
+|--------|------------|-----|-------|
+| `fast` | Nemotron-30B | Qwen2.5-VL-32B | Fastest |
+| `balanced` | Kimi-K2 | InternVL3-78B | Medium |
+| `quality` | DeepSeek-V3.2 | Qwen3-VL-235B | Best |
+
+---
+
 ## The Learning Loop
 
 Unlike traditional ML training, ARC-AGI uses **test-time compute** - the "learning" happens at inference time for each specific task.
