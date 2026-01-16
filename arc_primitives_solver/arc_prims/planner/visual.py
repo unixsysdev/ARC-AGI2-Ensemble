@@ -25,11 +25,17 @@ I'm showing you training examples from an ARC puzzle. Each example shows:
 - INPUT grid on the left
 - OUTPUT grid on the right
 
-ANALYZE the visual pattern and describe the EXACT transformation.
+## FIRST: Object-Centric Observation
+Before planning, describe what you SEE:
+1. What OBJECTS are in the input? (shapes, colors, sizes)
+2. What CHANGES between input and output? (position, color, size)
+3. What STAYS THE SAME? (invariants)
+4. What SPATIAL RELATIONSHIPS exist? (touching, inside, aligned)
 
-Then provide a step-by-step plan using ONLY these primitives with EXACT syntax:
+## THEN: Generate a Plan
+Use ONLY these primitives with EXACT syntax:
 
-AVAILABLE PRIMITIVES (use exactly as shown):
+PRIMITIVES:
 - SELECT all [color] cells         (e.g., "SELECT all green cells")
 - SELECT the largest object
 - SELECT the smallest object  
@@ -41,20 +47,27 @@ AVAILABLE PRIMITIVES (use exactly as shown):
 - FILTER keep only cells larger than N
 - ROTATE 90/180/270 degrees
 - FLIP horizontal/vertical
+- GRAVITY down/up/left/right
 
-COLOR NUMBERS: black=0, blue=1, red=2, green=3, yellow=4, grey=5, pink=6, orange=7, cyan=8, brown=9
+COLORS: black=0, blue=1, red=2, green=3, yellow=4, grey=5, pink=6, orange=7, cyan=8, brown=9
 
 FORMAT YOUR RESPONSE AS:
 
-## Pattern
-[One sentence describing the transformation]
+## Objects
+[List objects you see in INPUT: shapes, colors, positions]
+
+## Changes
+[What transforms from INPUT to OUTPUT]
+
+## Invariants
+[What stays the same]
 
 ## Steps
-STEP 1: [primitive using exact syntax above]
-STEP 2: [primitive using exact syntax above]
+STEP 1: [primitive]
+STEP 2: [primitive]
 ...
 
-IMPORTANT: Keep steps SIMPLE. Use color names or numbers. Max 5 steps.
+IMPORTANT: Keep steps SIMPLE. Max 5 steps. Use color names or numbers.
 """
 
     def __init__(self, client: Any, config: Config):

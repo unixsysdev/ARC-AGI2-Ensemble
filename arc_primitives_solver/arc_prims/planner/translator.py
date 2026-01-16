@@ -313,7 +313,7 @@ class PrimitiveTranslator:
         return None
     
     async def _llm_translate(self, step: str) -> Primitive | None:
-        """Use LLM to translate step to primitive."""
+        """Use LLM to translate step to primitive with few-shot examples."""
         messages = [
             {
                 "role": "system",
@@ -341,9 +341,42 @@ Available primitives:
 5. COMPOSITE(mode): Combine layers
    - mode: "overlay", "underlay", "merge", "replace"
 
-Output ONLY valid JSON:
-{"type": "select|transform|paint|filter|composite", "params": {...}}"""
+Output ONLY valid JSON: {"type": "...", "params": {...}}"""
             },
+            # Few-shot examples for edge cases
+            {
+                "role": "user",
+                "content": "Translate to primitive: Find the blue pixels and fill them with red"
+            },
+            {
+                "role": "assistant", 
+                "content": '{"type": "select", "params": {"criteria": "color", "value": 1}}'
+            },
+            {
+                "role": "user",
+                "content": "Translate to primitive: Color the selected cells yellow"
+            },
+            {
+                "role": "assistant",
+                "content": '{"type": "paint", "params": {"action": "fill", "color": 4}}'
+            },
+            {
+                "role": "user",
+                "content": "Translate to primitive: Move everything down by 3 cells"
+            },
+            {
+                "role": "assistant",
+                "content": '{"type": "transform", "params": {"action": "shift", "dx": 0, "dy": 3}}'
+            },
+            {
+                "role": "user",
+                "content": "Translate to primitive: Keep only objects touching the edge"
+            },
+            {
+                "role": "assistant",
+                "content": '{"type": "filter", "params": {"condition": "touches_border"}}'
+            },
+            # Actual query
             {
                 "role": "user",
                 "content": f"Translate to primitive: {step}"

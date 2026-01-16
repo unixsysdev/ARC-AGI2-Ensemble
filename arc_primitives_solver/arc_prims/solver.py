@@ -109,6 +109,8 @@ class PrimitivesSolver:
     ) -> ExecutionState:
         """Execute program with step-by-step verification.
         
+        Uses confidence-based VLM skip for simple operations to reduce latency.
+        
         Args:
             input_grid: Input grid
             program: Program to execute
@@ -117,10 +119,14 @@ class PrimitivesSolver:
         Returns:
             Final execution state
         """
+        from .judge.unified import LogicJudge
+        logic_judge = LogicJudge()
+        
         # Initialize state
         current_state = ExecutionState.initial(input_grid)
         all_states = [current_state]
         step_failures = []  # Collect failures for feedback
+        vlm_calls_skipped = 0
         
         for i, primitive in enumerate(program.steps):
             logger.info(f"  Executing step {i+1}/{len(program.steps)}: {primitive.english[:50]}...")
@@ -130,18 +136,25 @@ class PrimitivesSolver:
             
             # Verify step
             if self.config.use_vlm_verification:
-                is_valid, reason = await self.judge.verify_step(
-                    current_state,
-                    new_state,
-                    primitive.english
-                )
-                
-                if not is_valid:
-                    logger.warning(f"  Step {i+1} failed verification: {reason}")
-                    # Capture failure for feedback
-                    step_failures.append(f"Step {i+1} ({primitive.english[:30]}...): {reason[:100]}")
+                # Check if we can skip VLM based on confidence
+                if logic_judge.should_skip_vlm(current_state, new_state):
+                    vlm_calls_skipped += 1
+                    score, reason = logic_judge.get_confidence_score(current_state, new_state)
+                    logger.debug(f"  Step {i+1} VLM skipped (confidence={score:.2f}): {reason}")
                 else:
-                    logger.debug(f"  Step {i+1} verified: {reason}")
+                    # Full VLM verification
+                    is_valid, reason = await self.judge.verify_step(
+                        current_state,
+                        new_state,
+                        primitive.english
+                    )
+                    
+                    if not is_valid:
+                        logger.warning(f"  Step {i+1} failed verification: {reason}")
+                        # Capture failure for feedback
+                        step_failures.append(f"Step {i+1} ({primitive.english[:30]}...): {reason[:100]}")
+                    else:
+                        logger.debug(f"  Step {i+1} verified: {reason}")
             
             current_state = new_state
             all_states.append(current_state)
@@ -151,6 +164,9 @@ class PrimitivesSolver:
                 logger.error(f"  Execution error at step {i+1}: {current_state.error}")
                 step_failures.append(f"Step {i+1} crashed: {current_state.error}")
                 break
+        
+        if vlm_calls_skipped > 0:
+            logger.info(f"  VLM calls skipped: {vlm_calls_skipped}/{len(program.steps)} (confidence-based)")
         
         # Render final filmstrip
         filmstrip_path = self.filmstrip_renderer.render(all_states)
