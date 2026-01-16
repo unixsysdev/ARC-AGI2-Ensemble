@@ -62,10 +62,14 @@ RECOMMENDATION: [Specific action to try, using exact primitive names]
         try:
             logger.info(f"[FEEDBACK ANALYZER] Reasoning over {len(failures)} failures...")
             
-            response = await self.client.complete(
-                prompt=prompt,
-                model=self.config.llm_model,  # Use LLM for reasoning
-                max_tokens=200,
+            messages = [
+                {"role": "system", "content": "You are an expert ARC-AGI puzzle debugger."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = await self.client.chat(
+                self.config.llm_model,
+                messages,
                 temperature=0.3  # More focused
             )
             
