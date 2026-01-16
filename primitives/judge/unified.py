@@ -368,18 +368,51 @@ class LogicJudge:
         reason = "; ".join(issues) if issues else "All heuristics passed"
         return max(0.0, min(1.0, score)), reason
     
+    # Primitives that ALWAYS require VLM verification (destructive)
+    DESTRUCTIVE_PRIMITIVES = {'flood_fill', 'gravity', 'composite'}
+    
     def should_skip_vlm(
         self,
         prev_state: "ExecutionState",
         curr_state: "ExecutionState",
-        threshold: float = 0.8
+        threshold: float = 0.8,
+        max_change_pct: float = 0.30  # Force VLM if >30% of cells change
     ) -> bool:
-        """Determine if VLM verification can be skipped based on confidence."""
+        """Determine if VLM verification can be skipped based on confidence.
+        
+        NEVER skip VLM for:
+        - Destructive primitives (FLOOD_FILL, GRAVITY, COMPOSITE)
+        - Changes affecting >30% of the grid
+        """
+        import numpy as np
+        
+        # Get primitive type
+        prim_type = None
+        if curr_state.primitive:
+            prim_type = curr_state.primitive.type.value.lower()
+        
+        # NEVER skip VLM for destructive primitives - they can destroy the grid
+        if prim_type in self.DESTRUCTIVE_PRIMITIVES:
+            return False  # Force VLM verification
+        
+        # Calculate percentage of cells that changed
+        prev_arr = np.array(prev_state.grid)
+        curr_arr = np.array(curr_state.grid)
+        
+        if prev_arr.shape == curr_arr.shape:
+            changed_cells = np.sum(prev_arr != curr_arr)
+            total_cells = prev_arr.size
+            change_pct = changed_cells / total_cells if total_cells > 0 else 0
+            
+            # NEVER skip VLM if >30% of grid changed - could be catastrophic error
+            if change_pct > max_change_pct:
+                return False  # Force VLM verification
+        
+        # Get confidence score
         score, _ = self.get_confidence_score(prev_state, curr_state)
         
-        # Skip VLM for simple primitives with high confidence
-        if curr_state.primitive and curr_state.primitive.type.value in self.SIMPLE_PRIMITIVES:
+        # Only skip for simple primitives with very high confidence
+        if prim_type in self.SIMPLE_PRIMITIVES:
             return score >= 0.9
         
         return score >= threshold
-

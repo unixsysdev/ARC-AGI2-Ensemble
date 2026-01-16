@@ -295,6 +295,8 @@ class PrimitivesSolver:
         This is the GROUND TRUTH test - if our solution works on training
         examples, it's likely correct for test.
         
+        Provides DETAILED feedback for the LLM to learn from failures.
+        
         Args:
             task: ARC Task with training examples
             program: The program to validate
@@ -318,17 +320,42 @@ class PrimitivesSolver:
                     failures.append(f"Train {i+1}: Size {len(actual)}x{len(actual[0])} != expected {len(expected_output)}x{len(expected_output[0])}")
                     continue
                 
-                # Cell-by-cell comparison
+                # Cell-by-cell comparison with detail
                 wrong_cells = 0
+                actual_colors = {}
+                expected_colors = {}
+                
                 for r in range(len(expected_output)):
                     for c in range(len(expected_output[0])):
-                        if actual[r][c] != expected_output[r][c]:
+                        expected_val = expected_output[r][c]
+                        actual_val = actual[r][c]
+                        
+                        expected_colors[expected_val] = expected_colors.get(expected_val, 0) + 1
+                        actual_colors[actual_val] = actual_colors.get(actual_val, 0) + 1
+                        
+                        if actual_val != expected_val:
                             wrong_cells += 1
                 
                 if wrong_cells > 0:
                     total = len(expected_output) * len(expected_output[0])
                     pct = 100 * wrong_cells / total
-                    failures.append(f"Train {i+1}: {wrong_cells}/{total} cells wrong ({pct:.0f}%)")
+                    
+                    # Provide specific feedback about color distribution
+                    expected_dist = ", ".join(f"{k}:{v}" for k, v in sorted(expected_colors.items()))
+                    actual_dist = ", ".join(f"{k}:{v}" for k, v in sorted(actual_colors.items()))
+                    
+                    feedback = f"Train {i+1}: {wrong_cells}/{total} cells wrong ({pct:.0f}%)"
+                    
+                    # Add color distribution if significantly different
+                    if actual_colors != expected_colors:
+                        feedback += f" | Colors expected [{expected_dist}] got [{actual_dist}]"
+                    
+                    # Add specific hint if entire grid is one color (common failure)
+                    if len(actual_colors) == 1:
+                        only_color = list(actual_colors.keys())[0]
+                        feedback += f" | Output is ALL color {only_color} - transformation likely wrong"
+                    
+                    failures.append(feedback)
                 else:
                     logger.debug(f"  Train {i+1}: ✓ correct")
                     
