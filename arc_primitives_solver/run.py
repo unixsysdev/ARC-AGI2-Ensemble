@@ -96,6 +96,16 @@ Examples:
         action="store_true",
         help="Disable VLM verification (faster but less accurate)"
     )
+    parser.add_argument(
+        "--vlm-model",
+        type=str,
+        help="VLM model name (e.g., Qwen/Qwen2.5-VL-72B-Instruct)"
+    )
+    parser.add_argument(
+        "--llm-model",
+        type=str,
+        help="LLM/coder model name (e.g., openai/gpt-4o-mini)"
+    )
     
     # Solver options
     parser.add_argument(
@@ -140,6 +150,18 @@ Examples:
         logger.info("Visual planning enabled (VLM will analyze grid images)")
     else:
         config.use_visual_planning = False
+    
+    # Override models if specified
+    if args.vlm_model:
+        from arc_prims.config import ModelConfig
+        config.vlm_model = ModelConfig(name=args.vlm_model, max_tokens=4096, temperature=0.3)
+        logger.info(f"VLM model: {args.vlm_model}")
+    
+    if args.llm_model:
+        from arc_prims.config import ModelConfig
+        config.coder_model = ModelConfig(name=args.llm_model, max_tokens=4096, temperature=0.2)
+        config.reasoner_model = ModelConfig(name=args.llm_model, max_tokens=8192, temperature=0.4)
+        logger.info(f"LLM model: {args.llm_model}")
     
     # Load task
     task_path = config.data_dir / args.split / f"{args.task_id}.json"
