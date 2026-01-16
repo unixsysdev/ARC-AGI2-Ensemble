@@ -38,16 +38,51 @@ class FilmstripRenderer:
     - Side-by-side states with step labels
     - Change highlighting (diff overlay)
     - Selection visualization (semi-transparent overlay)
+    - Organized output: logs/filmstrips/{task_id}/{run_timestamp}/
     """
     
     def __init__(self, output_dir: Path | None = None):
-        self.output_dir = output_dir or Path(tempfile.gettempdir()) / "filmstrips"
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.base_dir = output_dir or Path(tempfile.gettempdir()) / "filmstrips"
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Current run context (set by solver)
+        self.task_id: str | None = None
+        self.run_id: str | None = None
+        self.attempt: int = 0
+        self._run_dir: Path | None = None
         
         # Create colormap
         color_list = [ARC_COLORS[i] for i in range(10)]
         self.cmap = colors.ListedColormap(color_list)
         self.norm = colors.Normalize(vmin=0, vmax=9)
+    
+    def set_run_context(self, task_id: str, run_id: str | None = None):
+        """Set context for current run (creates folder structure).
+        
+        Creates: logs/filmstrips/{task_id}/{run_timestamp}/
+        
+        Args:
+            task_id: Task ID (e.g., "00d62c1b")
+            run_id: Run timestamp (auto-generated if None)
+        """
+        from datetime import datetime
+        
+        self.task_id = task_id
+        self.run_id = run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.attempt = 0
+        
+        # Create run directory
+        self._run_dir = self.base_dir / task_id / self.run_id
+        self._run_dir.mkdir(parents=True, exist_ok=True)
+    
+    def next_attempt(self):
+        """Increment attempt counter for current run."""
+        self.attempt += 1
+    
+    @property
+    def output_dir(self) -> Path:
+        """Get current output directory (run-specific or base)."""
+        return self._run_dir if self._run_dir else self.base_dir
     
     def render(
         self,
@@ -68,7 +103,11 @@ class FilmstripRenderer:
             Path to the rendered image
         """
         if path is None:
-            path = self.output_dir / f"filmstrip_{len(states)}_steps.png"
+            # Use attempt-based naming: attempt_1_5_steps.png
+            if self.attempt > 0:
+                path = self.output_dir / f"attempt_{self.attempt}_{len(states)}_steps.png"
+            else:
+                path = self.output_dir / f"filmstrip_{len(states)}_steps.png"
         
         # Subsample if too many frames
         if len(states) > max_frames:

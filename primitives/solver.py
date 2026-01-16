@@ -250,7 +250,12 @@ class PrimitivesSolver:
         candidates = []
         feedback = None  # Starts with no feedback
         
+        # Set up run context for organized filmstrip output
+        self.filmstrip_renderer.set_run_context(task.task_id)
+        logger.info(f"  Run output: {self.filmstrip_renderer.output_dir}")
+        
         for attempt in range(max_attempts):
+            self.filmstrip_renderer.next_attempt()  # Increment attempt counter
             logger.info(f"Attempt {attempt + 1}/{max_attempts}")
             
             if feedback:
