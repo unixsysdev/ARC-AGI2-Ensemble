@@ -31,7 +31,7 @@ class LocalLLMClient:
         base_url: str = "http://localhost:8000",
         model_name: str = "auto",  # "auto" = detect from /v1/models
         max_concurrency: int = 4,
-        timeout: float = 300.0  # 5 min timeout for long code generation
+        timeout: float = 600.0  # 10 min timeout for large models like GPT-OSS-120B
     ):
         self.base_url = base_url.rstrip("/")
         self._model_name = model_name
@@ -97,7 +97,7 @@ class LocalLLMClient:
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "stream": False,
-                # "reasoning_effort": "medium"  # Only for reasoning models like GPT-OSS
+                "reasoning_effort": "low"  # For reasoning models like GPT-OSS
             }
             
             if stop:

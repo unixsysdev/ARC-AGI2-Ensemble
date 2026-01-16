@@ -15,6 +15,10 @@ AVAILABLE_MODELS = {
     "kimi": "moonshotai/Kimi-K2-Instruct",  # Fallback reasoner
     "qwen-reasoning": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8-TEE",
     
+    # GPT-OSS (OpenAI-compatible reasoning models)
+    "gpt-oss-20b": "openai/gpt-oss-20b-TEE",
+    "gpt-oss-120b": "openai/gpt-oss-120b-TEE",
+    
     # Coders (for Python generation)
     "qwen-coder": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8-TEE",
     "qwen-coder-small": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
@@ -53,12 +57,13 @@ class Config:
     # Local LLM Settings
     local_url: str = field(default_factory=lambda: os.environ.get("LOCAL_LLM_URL", "http://localhost:8000"))
     use_local: bool = False
-    local_concurrency: int = 32  # Parallel requests to local LLM (match vLLM max-num-seqs)
-    local_batch_size: int = 32   # Number of candidates per generation
+    local_concurrency: int = 64  # Parallel requests to local LLM (match vLLM max-num-seqs)
+    local_batch_size: int = 64   # Number of candidates per generation
+    local_timeout: int = 600     # HTTP timeout in seconds for local LLM (10 min default)
     
     # Hybrid Mode Settings (local exploration + remote refinement)
     hybrid_mode: bool = False
-    hybrid_local_candidates: int = 32  # Generate this many with local (1 batch of 32)
+    hybrid_local_candidates: int = 64  # Generate this many with local (1 batch of 64)
     hybrid_top_k: int = 5  # Keep top K for remote refinement
     hybrid_remote_revisions: int = 2  # Revisions per top candidate
     
@@ -125,9 +130,12 @@ def load_config(
     use_local: bool = False,
     local_url: str | None = None,
     hybrid_mode: bool = False,
-    local_concurrency: int = 32,
+    local_concurrency: int = 64,
     hybrid_candidates: int = 64,
-    feedback_to_local: bool = True  # Enable feedback loop by default
+    feedback_to_local: bool = True,  # Enable feedback loop by default
+    local_timeout: int = 600,  # 10 min default for large models
+    initial_candidates: int = 30,  # Initial code candidates to generate
+    remote_concurrency: int = 20  # Max concurrent remote API calls
 ) -> Config:
     """Load configuration with optional model overrides."""
     config = Config()
@@ -151,5 +159,12 @@ def load_config(
     
     # Set feedback loop
     config.feedback_to_local = feedback_to_local
+    
+    # Set timeout
+    config.local_timeout = local_timeout
+    
+    # Set remote API settings
+    config.initial_candidates = initial_candidates
+    config.max_concurrency = remote_concurrency
     
     return config

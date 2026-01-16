@@ -209,7 +209,7 @@ def parse_args():
         "--reasoner",
         type=str,
         default=None,
-        choices=["deepseek", "kimi", "qwen-reasoning"],
+        choices=["deepseek", "kimi", "qwen-reasoning", "gpt-oss-120b"],
         help="Reasoner model (default: kimi)"
     )
     parser.add_argument(
@@ -238,14 +238,14 @@ def parse_args():
     parser.add_argument(
         "--local-concurrency",
         type=int,
-        default=32,
-        help="Max concurrent requests to local LLM (default: 32)"
+        default=64,
+        help="Max concurrent requests to local LLM (default: 64)"
     )
     parser.add_argument(
         "--hybrid-candidates", 
         type=int,
-        default=32,
-        help="Number of candidates for hybrid local exploration (default: 32)"
+        default=64,
+        help="Number of candidates for hybrid local exploration (default: 64)"
     )
     parser.add_argument(
         "--list-models",
@@ -256,6 +256,24 @@ def parse_args():
         "--no-feedback-loop",
         action="store_true",
         help="Disable feedback-to-local learning loop (default: enabled)"
+    )
+    parser.add_argument(
+        "--local-timeout",
+        type=int,
+        default=600,
+        help="HTTP timeout in seconds for local LLM requests (default: 600 = 10 min)"
+    )
+    parser.add_argument(
+        "--initial-candidates",
+        type=int,
+        default=30,
+        help="Number of initial code candidates to generate (default: 30)"
+    )
+    parser.add_argument(
+        "--remote-concurrency",
+        type=int,
+        default=20,
+        help="Max concurrent requests to remote API (default: 20)"
     )
     
     return parser.parse_args()
@@ -284,7 +302,8 @@ async def main():
         hybrid_mode=args.hybrid,
         local_concurrency=args.local_concurrency,
         hybrid_candidates=args.hybrid_candidates,
-        feedback_to_local=not args.no_feedback_loop  # Invert flag
+        feedback_to_local=not args.no_feedback_loop,  # Invert flag
+        local_timeout=args.local_timeout
     )
     
     if args.verbose:

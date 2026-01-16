@@ -42,10 +42,11 @@ class System2Controller:
             self.local_client = LocalLLMClient(
                 base_url=config.local_url,
                 model_name="auto",  # Will auto-detect from vLLM
-                max_concurrency=config.local_concurrency  # Use config value
+                max_concurrency=config.local_concurrency,  # Use config value
+                timeout=float(config.local_timeout)  # Configurable timeout
             )
             self.local_code_generator = LocalCodeGenerator(self.local_client)
-            logger.info(f"Local LLM enabled at {config.local_url} (concurrency={config.local_concurrency})")
+            logger.info(f"Local LLM enabled at {config.local_url} (concurrency={config.local_concurrency}, timeout={config.local_timeout}s)")
         
         # System 1 workers (remote API)
         self.code_generator = CodeGenerator(client, config)

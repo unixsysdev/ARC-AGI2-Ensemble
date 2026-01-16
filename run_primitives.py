@@ -7,20 +7,17 @@ import logging
 import sys
 from pathlib import Path
 
-# Add arc_solver to path for imports (MUST be first, before any local imports)
-ARC_SOLVER_PATH = Path(__file__).parent.parent / "arc_solver"
-sys.path.insert(0, str(ARC_SOLVER_PATH))
+# Add project root to path
+PROJECT_ROOT = Path(__file__).parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
-# Now import from arc_solver (uses their src/)
+# Import from shared src/
 from src.llms.chutes_client import ChutesClient
 from src.models.task import Task
 
-# Add our package to path
-sys.path.insert(0, str(Path(__file__).parent))
-
-# Now import our local modules (uses arc_prims/, no collision)
-from arc_prims.config import load_config, MODEL_PRESETS
-from arc_prims.solver import PrimitivesSolver
+# Import primitives modules
+from primitives.config import load_config, MODEL_PRESETS
+from primitives.solver import PrimitivesSolver
 
 
 def setup_logging(verbose: bool = False):
@@ -153,12 +150,12 @@ Examples:
     
     # Override models if specified
     if args.vlm_model:
-        from arc_prims.config import ModelConfig
+        from primitives.config import ModelConfig
         config.vlm_model = ModelConfig(name=args.vlm_model, max_tokens=4096, temperature=0.3)
         logger.info(f"VLM model: {args.vlm_model}")
     
     if args.llm_model:
-        from arc_prims.config import ModelConfig
+        from primitives.config import ModelConfig
         config.coder_model = ModelConfig(name=args.llm_model, max_tokens=4096, temperature=0.2)
         config.reasoner_model = ModelConfig(name=args.llm_model, max_tokens=8192, temperature=0.4)
         logger.info(f"LLM model: {args.llm_model}")
