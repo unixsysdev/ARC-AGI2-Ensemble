@@ -19,55 +19,62 @@ logger = logging.getLogger(__name__)
 class VisualPlanner:
     """Generate step-by-step plans using VLM with rendered grid images."""
     
-    VISUAL_PLANNING_PROMPT = """You are an expert at solving ARC-AGI puzzles. 
+    VISUAL_PLANNING_PROMPT = """You are an expert ARC-AGI puzzle solver. I'm showing you training examples.
 
-I'm showing you training examples from an ARC puzzle. Each example shows:
-- INPUT grid on the left
-- OUTPUT grid on the right
+Each example shows INPUT grid (left) → OUTPUT grid (right).
 
-## FIRST: Object-Centric Observation
-Before planning, describe what you SEE:
-1. What OBJECTS are in the input? (shapes, colors, sizes)
-2. What CHANGES between input and output? (position, color, size)
+## STEP 1: OBSERVE (describe what you SEE)
+1. What OBJECTS are in the input? (shapes, colors, sizes, positions)
+2. What CHANGES between input and output?
 3. What STAYS THE SAME? (invariants)
-4. What SPATIAL RELATIONSHIPS exist? (touching, inside, aligned)
+4. What SPATIAL RELATIONSHIPS exist? (enclosed, touching, aligned)
 
-## THEN: Generate a Plan
-Use ONLY these primitives with EXACT syntax:
+## STEP 2: GENERATE DSL PROGRAM
+Translate your visual understanding DIRECTLY into these executable primitives:
 
-PRIMITIVES:
-- SELECT all [color] cells         (e.g., "SELECT all green cells")
-- SELECT the largest object
-- SELECT the smallest object  
-- SELECT connected components
-- PAINT with [color]               (e.g., "PAINT with yellow")
-- PAINT selected cells with [color]
-- REPLACE [color1] with [color2]   (e.g., "REPLACE green with yellow")
-- FILTER keep only cells touching border
-- FILTER keep only cells larger than N
-- ROTATE 90/180/270 degrees
-- FLIP horizontal/vertical
-- GRAVITY down/up/left/right
+```
+AVAILABLE PRIMITIVES (use exact function syntax):
 
-COLORS: black=0, blue=1, red=2, green=3, yellow=4, grey=5, pink=6, orange=7, cyan=8, brown=9
+# Selection
+select(criteria="color", value=N)           # Select all cells of color N (0-9)
+select(criteria="connected")                 # Find all connected components
+select(criteria="largest")                   # Select the largest object
+select(criteria="smallest")                  # Select the smallest object
+select(criteria="enclosed", enclosing_color=N)  # Find regions enclosed by color N
 
-FORMAT YOUR RESPONSE AS:
+# Painting
+paint(color=N)                               # Paint selected cells with color N
+replace(source_color=A, target_color=B)      # Replace color A with B everywhere
 
-## Objects
-[List objects you see in INPUT: shapes, colors, positions]
+# Flood Fill (CRITICAL: always specify target_color!)
+flood_fill(color=N, start_position="border", target_color=0)  # Fill from border, replacing 0s
 
-## Changes
-[What transforms from INPUT to OUTPUT]
+# Transformations
+transform(action="rotate_90")
+transform(action="rotate_180")
+transform(action="flip_horizontal")
+transform(action="flip_vertical")
+gravity(direction="down")                    # Drop objects in direction
+```
 
-## Invariants
-[What stays the same]
+## OUTPUT FORMAT:
 
-## Steps
-STEP 1: [primitive]
-STEP 2: [primitive]
-...
+### Observations
+[Brief description of what you see changing]
 
-IMPORTANT: Keep steps SIMPLE. Max 5 steps. Use color names or numbers.
+### DSL Program
+```dsl
+1. select(criteria="color", value=0)
+2. flood_fill(color=5, start_position="border", target_color=0)
+3. replace(source_color=0, target_color=4)
+4. replace(source_color=5, target_color=0)
+```
+
+CRITICAL RULES:
+- Use EXACT function syntax shown above
+- Max 5 steps
+- For flood_fill, ALWAYS specify target_color (usually 0 for background)
+- Colors: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 8=cyan, 9=brown
 """
 
     def __init__(self, client: Any, config: Config):
@@ -132,8 +139,8 @@ Learn from these failures and try a DIFFERENT approach. Avoid the same mistakes.
 """
                 logger.info(f"Including feedback from {len(previous_feedback)} previous failures")
             
-            logger.info(f"Visual planning with {len(task.train)} training examples")
-            logger.debug(f"Using VLM: {self.model.name}")
+            logger.info(f"[VLM PLANNING] Model: {self.model.name}")
+            logger.info(f"[VLM PLANNING] Training examples: {len(task.train)}")
             
             # Call VLM with graceful fallback
             try:
@@ -145,7 +152,7 @@ Learn from these failures and try a DIFFERENT approach. Avoid the same mistakes.
                     max_tokens=self.model.max_tokens
                 )
                 
-                logger.debug(f"VLM response: {len(response)} chars")
+                logger.info(f"[VLM PLANNING] Response: {len(response)} chars")
                 return response
                 
             except Exception as e:

@@ -50,58 +50,77 @@ COLOR KEY: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 
 3. Is there a pattern like: "all X become Y" or "cells surrounded by X become Y"?
 4. Count objects, check for symmetry, look for enclosed regions.
 
-## GENERATE PLAN USING ONLY THESE PRIMITIVES:
-- SELECT all [color] cells
-- SELECT connected components
-- SELECT the largest/smallest object
-- PAINT with [color]
-- REPLACE [color1] with [color2]
-- FLOOD_FILL from border with [color] (marks exterior cells)
-- FLOOD_FILL from position (x,y) with [color]
-- FILTER keep only cells touching border
-- ROTATE 90/180/270 degrees
-- FLIP horizontal/vertical
-- GRAVITY down/up/left/right
+## GENERATE DSL PROGRAM using these primitives:
 
-IMPORTANT: Use ONLY the primitives listed above. Do NOT invent new ones.
+```
+# Selection
+select(criteria="color", value=N)           # Select cells of color N
+select(criteria="connected")                 # Find connected components
+select(criteria="enclosed", enclosing_color=N)  # Regions enclosed by color N
 
-FORMAT:
-## Analysis
-[Your logical analysis]
+# Painting
+paint(color=N)                               # Paint selected cells
+replace(source_color=A, target_color=B)      # Replace A with B everywhere
 
-## Steps
-STEP 1: [primitive from list above]
-STEP 2: [primitive from list above]
-...
+# Flood Fill (CRITICAL: always specify target_color!)
+flood_fill(color=N, start_position="border", target_color=0)
+
+# Transformations
+transform(action="rotate_90"|"flip_horizontal"|etc)
+gravity(direction="down"|"up"|"left"|"right")
+```
+
+## OUTPUT FORMAT:
+
+### Analysis
+[Your logical analysis - 2-3 sentences]
+
+### DSL Program
+```dsl
+1. function_call_here(param=value)
+2. next_function(param=value)
+```
+
+CRITICAL: For flood_fill, ALWAYS include target_color parameter!
 """
 
-    SYNTHESIS_PROMPT = """You have TWO analyses of the same ARC puzzle:
+    SYNTHESIS_PROMPT = """You have TWO proposed DSL programs for the same ARC puzzle:
 
-## VISUAL ANALYSIS (from VLM seeing the grids as images):
+## VISUAL PROPOSAL (VLM analyzing grid images):
 {visual_plan}
 
-## SYMBOLIC ANALYSIS (from LLM analyzing the grid numbers):
+## SYMBOLIC PROPOSAL (LLM analyzing grid numbers):
 {symbolic_plan}
 
-SYNTHESIZE these into ONE unified plan using ONLY these primitives:
-- SELECT all [color] cells
-- SELECT connected components  
-- SELECT the largest/smallest object
-- PAINT with [color]
-- REPLACE [color1] with [color2]
-- FLOOD_FILL from border with [color]
-- FILTER keep only cells touching border
-- ROTATE/FLIP/GRAVITY
+TASK: Synthesize the BEST unified DSL program.
 
-Do NOT use any other primitives. Do NOT invent primitives like "SET DIFFERENCE".
+RULES:
+1. If both agree on an approach, use it
+2. If VLM uses flood_fill with target_color - this is usually correct for enclosed regions
+3. If LLM found a specific color pattern - incorporate it
+4. ALWAYS include target_color in flood_fill calls (usually 0 for background)
+
+AVAILABLE PRIMITIVES:
+- select(criteria="color"|"connected"|"enclosed", value=N)
+- paint(color=N)
+- replace(source_color=A, target_color=B)
+- flood_fill(color=N, start_position="border", target_color=0)
+- transform(action="rotate_90"|"flip_horizontal"|etc)
+- gravity(direction="down"|"up"|"left"|"right")
 
 OUTPUT FORMAT:
-## Unified Plan
-STEP 1: [primitive]
-STEP 2: [primitive]
-...
 
-Keep it to MAX 5 steps.
+### Reasoning
+[1-2 sentences on which approach is better and why]
+
+### Final DSL Program
+```dsl
+1. first_primitive(params)
+2. second_primitive(params)
+...
+```
+
+Max 5 steps. Use EXACT function syntax.
 """
 
     def __init__(self, client: Any, config: Config):
@@ -133,7 +152,7 @@ Keep it to MAX 5 steps.
         Returns:
             Synthesized plan string
         """
-        logger.info("Ensemble planning: VLM + LLM dual-path")
+        logger.info("[ENSEMBLE] Dual-path planning: VLM visual + LLM symbolic")
         
         # Run both analyses in parallel
         visual_task = self._get_visual_analysis(task, previous_feedback)
@@ -159,8 +178,8 @@ Keep it to MAX 5 steps.
             logger.warning(f"LLM analysis failed: {symbolic_plan}")
             symbolic_plan = "[Symbolic analysis unavailable]"
         
-        logger.debug(f"Visual plan: {len(str(visual_plan))} chars")
-        logger.debug(f"Symbolic plan: {len(str(symbolic_plan))} chars")
+        logger.info(f"[ENSEMBLE] VLM DSL: {len(str(visual_plan))} chars")
+        logger.info(f"[ENSEMBLE] LLM DSL: {len(str(symbolic_plan))} chars")
         
         # Synthesize the two analyses
         unified_plan = await self._synthesize(visual_plan, symbolic_plan)
@@ -194,12 +213,15 @@ Keep it to MAX 5 steps.
             {"role": "user", "content": prompt}
         ]
         
+        logger.info(f"[LLM SYMBOLIC] Model: {self.coder_model.name}")
+        
         response = await self.client.chat(
             self.coder_model,
             messages,
             temperature=0.3
         )
         
+        logger.info(f"[LLM SYMBOLIC] Response: {len(response)} chars")
         return response
     
     async def _synthesize(self, visual_plan: str, symbolic_plan: str) -> str:
