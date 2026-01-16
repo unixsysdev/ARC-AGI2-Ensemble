@@ -280,6 +280,9 @@ class PrimitivesSolver:
                     # Solution works on ALL training examples!
                     logger.info("  ✓ VALIDATION PASSED: Correct on all training examples!")
                     step_failures = []  # Clear failures since we're good
+                    
+                    # Rename filmstrip to mark as WINNER
+                    self.filmstrip_renderer.mark_winner()
                 
                 # Pass failures to next attempt as feedback
                 feedback = step_failures if step_failures else None

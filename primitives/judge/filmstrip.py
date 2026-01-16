@@ -78,6 +78,15 @@ class FilmstripRenderer:
     def next_attempt(self):
         """Increment attempt counter for current run."""
         self.attempt += 1
+        self._last_filmstrip: Path | None = None  # Track last rendered filmstrip
+    
+    def mark_winner(self):
+        """Rename the last filmstrip to include _WINNER suffix."""
+        if self._last_filmstrip and self._last_filmstrip.exists():
+            winner_path = self._last_filmstrip.with_stem(
+                self._last_filmstrip.stem + "_WINNER"
+            )
+            self._last_filmstrip.rename(winner_path)
     
     @property
     def output_dir(self) -> Path:
@@ -187,6 +196,9 @@ class FilmstripRenderer:
         plt.tight_layout()
         plt.savefig(path, dpi=120, bbox_inches='tight', pad_inches=0.1)
         plt.close()
+        
+        # Track last rendered path for mark_winner()
+        self._last_filmstrip = path
         
         return path
     
