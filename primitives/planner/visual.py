@@ -41,6 +41,7 @@ select(criteria="color", value=N)           # Select all cells of color N (0-9)
 select(criteria="connected")                 # Find all connected components
 select(criteria="largest")                   # Select the largest object
 select(criteria="smallest")                  # Select the smallest object
+select(criteria="size_rank", value=N)        # Select by size rank (0=smallest, -1=largest, 1=2nd smallest)
 select(criteria="enclosed", enclosing_color=N)  # Find regions enclosed by color N
 
 # Painting
@@ -69,15 +70,17 @@ gravity(direction="down")                    # Drop objects in direction
 ### DSL Program
 ```dsl
 1. select(criteria="color", value=3)
-2. select(criteria="largest")
+2. select(criteria="smallest")
 3. extract()
 ```
 
 CRITICAL RULES:
-- If OUTPUT is SMALLER than INPUT → use extract() to crop!
+- If OUTPUT is SMALLER than INPUT → filter to ONE object, then extract()!
+- ⚠️ extract() crops to bounding box of ALL selections - filter to ONE first!
+- ⚠️ Each select() REPLACES previous selection (not intersection)!
+- To select smallest/largest: select(criteria="connected"), then select(criteria="smallest")
 - Use EXACT function syntax shown above
 - Max 5 steps
-- For flood_fill, ALWAYS specify target_color (usually 0 for background)
 - Colors: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 8=cyan, 9=brown
 """
 

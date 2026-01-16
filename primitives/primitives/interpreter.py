@@ -224,6 +224,28 @@ class PrimitiveInterpreter:
             sizes = ndimage.sum(mask, labeled, range(1, num_features + 1))
             smallest_idx = np.argmin(sizes) + 1
             selection = Selection(mask=labeled == smallest_idx, source_grid=grid)
+        
+        elif params.criteria == SelectCriteria.SIZE_RANK:
+            # Select by size rank: 0=smallest, -1=largest, 1=2nd smallest, etc.
+            mask = arr != 0
+            labeled, num_features = ndimage.label(mask)
+            
+            if num_features == 0:
+                return ExecutionState(grid=grid, selections=[Selection.empty(grid)])
+            
+            sizes = ndimage.sum(mask, labeled, range(1, num_features + 1))
+            rank = params.value if params.value is not None else 0
+            
+            # Sort indices by size
+            sorted_indices = np.argsort(sizes)  # Smallest first
+            
+            # Handle negative indices (from largest end)
+            if rank < 0:
+                target_idx = sorted_indices[rank]  # -1 = largest, -2 = 2nd largest
+            else:
+                target_idx = sorted_indices[min(rank, len(sorted_indices) - 1)]
+            
+            selection = Selection(mask=labeled == (target_idx + 1), source_grid=grid)
             
         elif params.criteria == SelectCriteria.POSITION:
             # Select by position (value should be (r1, c1, r2, c2))

@@ -59,6 +59,7 @@ select(criteria="color", value=N)           # Select cells of color N
 select(criteria="connected")                 # Find connected components
 select(criteria="largest")                   # Select largest object
 select(criteria="smallest")                  # Select smallest object
+select(criteria="size_rank", value=N)        # By size rank (0=smallest, -1=largest, 1=2nd smallest)
 select(criteria="enclosed", enclosing_color=N)  # Regions enclosed by color N
 
 # Painting
@@ -88,7 +89,9 @@ gravity(direction="down"|"up"|"left"|"right")
 ```
 
 CRITICAL: 
-- If OUTPUT SIZE != INPUT SIZE → use extract()!
+- If OUTPUT SIZE != INPUT SIZE → filter to ONE object, then extract()!
+- ⚠️ extract() crops to bounding box of ALL selections - filter to ONE first!
+- ⚠️ Each select() REPLACES previous selection!
 - For flood_fill, ALWAYS include target_color parameter!
 """
 

@@ -45,6 +45,7 @@ class SelectCriteria(Enum):
     POSITION = "position"        # Select by grid position
     LARGEST = "largest"          # Select the largest object
     SMALLEST = "smallest"        # Select the smallest object
+    SIZE_RANK = "size_rank"      # Select by size rank (0=smallest, -1=largest, 1=2nd smallest)
     ALL = "all"                  # Select all non-background objects
     CONNECTED = "connected"      # Select connected components
     
