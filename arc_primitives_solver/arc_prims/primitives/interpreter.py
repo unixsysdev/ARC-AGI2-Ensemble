@@ -93,6 +93,7 @@ class PrimitiveInterpreter:
             PrimitiveType.COPY: self._execute_copy,
             PrimitiveType.EXTRACT: self._execute_extract,
             PrimitiveType.GRAVITY: self._execute_gravity,
+            PrimitiveType.FLOOD_FILL: self._execute_flood_fill,
         }
     
     def execute_step(
@@ -936,5 +937,67 @@ class PrimitiveInterpreter:
             grid=new_grid.tolist(),
             selections=[]
         )
-
+    
+    def _execute_flood_fill(
+        self,
+        state: ExecutionState,
+        primitive: Primitive
+    ) -> ExecutionState:
+        """Execute FLOOD_FILL primitive.
+        
+        Flood fill from border cells or a specific position.
+        Used to mark exterior cells (for finding enclosed holes).
+        """
+        from .dsl import FloodFillParams
+        
+        params: FloodFillParams = primitive.params
+        arr = np.array(state.grid)
+        h, w = arr.shape
+        new_grid = arr.copy()
+        
+        fill_color = params.color
+        target = params.target_color
+        
+        # Get starting positions
+        if params.start_position == "border":
+            # All border cells
+            starts = []
+            for c in range(w):
+                starts.append((0, c))
+                starts.append((h-1, c))
+            for r in range(1, h-1):
+                starts.append((r, 0))
+                starts.append((r, w-1))
+        else:
+            starts = [params.start_position]
+        
+        # BFS flood fill
+        visited = np.zeros_like(arr, dtype=bool)
+        queue = []
+        
+        for r, c in starts:
+            if 0 <= r < h and 0 <= c < w:
+                if target is None or arr[r, c] == target:
+                    queue.append((r, c))
+                    visited[r, c] = True
+        
+        while queue:
+            r, c = queue.pop(0)
+            
+            # Only fill if matches target
+            if target is None or arr[r, c] == target:
+                new_grid[r, c] = fill_color
+            
+            # Check 4 neighbors
+            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < h and 0 <= nc < w and not visited[nr, nc]:
+                    if target is None or arr[nr, nc] == target:
+                        visited[nr, nc] = True
+                        queue.append((nr, nc))
+        
+        return ExecutionState(
+            grid=new_grid.tolist(),
+            selections=state.selections
+        )
 

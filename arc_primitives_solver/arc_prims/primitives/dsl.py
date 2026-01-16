@@ -33,6 +33,7 @@ class PrimitiveType(Enum):
     COPY = "copy"           # Duplicate selection
     EXTRACT = "extract"     # Crop to selection
     GRAVITY = "gravity"     # Drop objects in direction
+    FLOOD_FILL = "flood_fill"  # Flood fill from position with color
 
 
 class SelectCriteria(Enum):
@@ -235,6 +236,22 @@ class GravityParams:
     direction: str = "down"
     stop_at_color: int | None = None
     rigid: bool = True  # Rigid body physics by default
+
+
+@dataclass
+class FloodFillParams:
+    """Parameters for FLOOD_FILL primitive.
+    
+    Flood fill from a starting position or from all border cells.
+    
+    Args:
+        color: Color to fill with
+        start_position: (row, col) or "border" to fill from all border cells
+        target_color: Only fill cells of this color (None = fill any)
+    """
+    color: int
+    start_position: tuple[int, int] | str = "border"  # (row, col) or "border"
+    target_color: int | None = None  # Only fill cells of this color
 
 
 @dataclass
