@@ -56,15 +56,14 @@ Best candidate solution:
 
 ## Architecture
 
-```
-Input Grid → [Visual Planner] → [Translator] → [Interpreter] → Output Grid
-                   ↓                                   ↓
-              VLM (grid images)                [Unified Judge]
-                   ↓                           (VLM verification)
-              English Plan                           ↓
-                                              [Learning Loop]
-                                         (failures → next attempt)
-```
+![Architecture Diagram](docs/architecture.png)
+
+**Data Flow:**
+1. Input ARC task → VisualPlanner (VLM) → Natural language plan
+2. PrimitiveTranslator (LLM) → DSL primitives
+3. PrimitiveInterpreter → ExecutionState changes
+4. UnifiedJudge + FilmstripGenerator → VLM verification
+5. Pass/Fail → Learning loop or final output
 
 ## Model Presets
 
