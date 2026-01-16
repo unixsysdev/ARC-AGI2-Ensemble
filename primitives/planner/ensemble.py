@@ -89,15 +89,17 @@ gravity(direction="down"|"up"|"left"|"right")
 
 ### DSL Program
 ```dsl
-1. function_call_here(param=value)
-2. next_function(param=value)
+1. select(criteria="connected")
+2. filter(condition="area_eq", value=9)
+3. extract()
 ```
 
 CRITICAL: 
-- If OUTPUT SIZE != INPUT SIZE → filter to ONE object, then extract()!
-- ⚠️ extract() crops to bounding box of ALL selections - filter to ONE first!
-- ⚠️ Each select() REPLACES previous selection!
-- For flood_fill, ALWAYS include target_color parameter!
+- If OUTPUT SIZE < INPUT SIZE → use select(connected) + filter + extract()!
+- ⚠️ NEVER use union to select multiple colors - it creates scattered selections!
+- ⚠️ INSTEAD: select(connected) finds objects, filter(has_colors=[c1,c2...]) keeps multi-color ones
+- filter(area_eq=N) keeps objects of exact area (e.g., 9 for 3x3)
+- extract() crops to bounding box - MUST filter to ONE object first!
 """
 
     # Meta-Reviewer prompt: SELECT the best expert, don't just merge
