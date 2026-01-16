@@ -356,9 +356,12 @@ class PrimitivesSolver:
                     
                     msg = f"Train {i+1}: Size {actual_h}x{actual_w} != expected {exp_h}x{exp_w}"
                     
-                    # CRITICAL: If expected is SMALLER, tell them to use extract()!
+                    # CRITICAL: If expected is SMALLER, tell them to use extract() with size hints!
                     if exp_h < actual_h or exp_w < actual_w:
-                        msg += f" → USE EXTRACT() to crop output to selection bounding box!"
+                        msg += f" → SELECT a {exp_h}x{exp_w} region, then EXTRACT()!"
+                        # Add hint about what size to look for
+                        if exp_h <= 5 and exp_w <= 5:
+                            msg += f" (Look for SMALLEST object, not largest!)"
                     
                     failures.append(msg)
                     continue
