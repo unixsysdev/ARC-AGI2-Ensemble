@@ -11,8 +11,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Add arc_solver to path for imports
-# ARC_ROOT points to /home/marcel/Work/ARC/
-ARC_ROOT = Path(__file__).parent.parent.parent
+# ARC_ROOT should always point to /home/marcel/Work/ARC/
+# Handle both /ARC/arc_primitives_solver and /ARC/arc_solver/arc_primitives_solver
+_here = Path(__file__).resolve()
+# Walk up until we find "ARC" folder (the workspace root)
+ARC_ROOT = _here
+while ARC_ROOT.name != "ARC" and ARC_ROOT.parent != ARC_ROOT:
+    ARC_ROOT = ARC_ROOT.parent
 sys.path.insert(0, str(ARC_ROOT / "arc_solver"))
 
 load_dotenv()
