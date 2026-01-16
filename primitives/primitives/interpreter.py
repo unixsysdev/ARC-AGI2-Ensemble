@@ -947,6 +947,10 @@ class PrimitiveInterpreter:
         
         Flood fill from border cells or a specific position.
         Used to mark exterior cells (for finding enclosed holes).
+        
+        IMPORTANT: If target_color is not specified, we INFER it from the
+        starting position's color. This prevents the common bug of filling
+        the ENTIRE grid when target=None.
         """
         from .dsl import FloodFillParams
         
@@ -971,30 +975,59 @@ class PrimitiveInterpreter:
         else:
             starts = [params.start_position]
         
-        # BFS flood fill
+        # CRITICAL FIX: Infer target_color from starting position if not specified
+        # Without this, target=None fills EVERYTHING
+        if target is None and starts:
+            # Find the first valid starting cell and use its color
+            for r, c in starts:
+                if 0 <= r < h and 0 <= c < w:
+                    target = arr[r, c]
+                    logger.debug(f"FLOOD_FILL: Inferred target_color={target} from starting cell ({r},{c})")
+                    break
+            
+            if target is None:
+                # No valid starting position, can't fill
+                logger.warning("FLOOD_FILL: No valid starting position, skipping")
+                return ExecutionState(
+                    grid=state.grid,
+                    selections=state.selections
+                )
+        
+        # Don't fill if fill_color == target (no-op)
+        if fill_color == target:
+            logger.debug(f"FLOOD_FILL: fill_color={fill_color} equals target={target}, skipping")
+            return ExecutionState(
+                grid=state.grid,
+                selections=state.selections
+            )
+        
+        # BFS flood fill - only fill cells that match TARGET color
         visited = np.zeros_like(arr, dtype=bool)
         queue = []
         
         for r, c in starts:
             if 0 <= r < h and 0 <= c < w:
-                if target is None or arr[r, c] == target:
+                if arr[r, c] == target:  # Must match target exactly
                     queue.append((r, c))
                     visited[r, c] = True
         
+        cells_filled = 0
         while queue:
             r, c = queue.pop(0)
             
-            # Only fill if matches target
-            if target is None or arr[r, c] == target:
-                new_grid[r, c] = fill_color
+            # Fill this cell
+            new_grid[r, c] = fill_color
+            cells_filled += 1
             
-            # Check 4 neighbors
+            # Check 4 neighbors - ONLY add if they match TARGET color
             for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nr, nc = r + dr, c + dc
                 if 0 <= nr < h and 0 <= nc < w and not visited[nr, nc]:
-                    if target is None or arr[nr, nc] == target:
+                    if arr[nr, nc] == target:  # Must match target exactly
                         visited[nr, nc] = True
                         queue.append((nr, nc))
+        
+        logger.debug(f"FLOOD_FILL: Filled {cells_filled} cells of color {target} with {fill_color}")
         
         return ExecutionState(
             grid=new_grid.tolist(),
