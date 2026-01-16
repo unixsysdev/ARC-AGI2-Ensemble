@@ -91,17 +91,16 @@ gravity(direction="down"|"up"|"left"|"right")
 
 ### DSL Program
 ```dsl
+# Pick the smallest object:
 1. select(criteria="connected")
-2. filter(condition="area_eq", value=9)
+2. select(criteria="smallest")
 3. extract()
 ```
 
 CRITICAL: 
-- If OUTPUT SIZE < INPUT SIZE → use select(connected) + filter + extract()!
-- ⚠️ NEVER use union to select multiple colors - it creates scattered selections!
-- ⚠️ INSTEAD: select(connected) finds objects, filter(has_colors=[c1,c2...]) keeps multi-color ones
-- filter(area_eq=N) keeps objects of exact area (e.g., 9 for 3x3)
-- extract() crops to bounding box - MUST filter to ONE object first!
+- If OUTPUT SIZE < INPUT SIZE → select(connected) → select(smallest) → extract()!
+- ⚠️ filter() may keep MULTIPLE objects - add select(smallest) to pick ONE!
+- extract() crops to bounding box - MUST have ONE object first!
 """
 
     # Meta-Reviewer prompt: SELECT the best expert, don't just merge

@@ -76,18 +76,17 @@ gravity(direction="down")                    # Drop objects in direction
 
 ### DSL Program
 ```dsl
+# If multiple objects might match, pick ONE:
 1. select(criteria="connected")
-2. filter(condition="area_eq", value=9)  # or filter(condition="has_colors", value=[1,3,4])
+2. select(criteria="smallest")   # or filter then select
 3. extract()
 ```
 
 CRITICAL RULES:
-- If OUTPUT is SMALLER than INPUT → use select(connected) + filter + extract()!
-- ⚠️ NEVER use union to select multiple colors - it creates scattered selections!
-- ⚠️ INSTEAD: select(connected) finds objects, filter(has_colors=[...]) keeps multi-color ones
-- ⚠️ extract() crops to bounding box of ALL selections - filter to ONE first!
-- To find a specific-sized object: select(connected) → filter(area_eq=N) → extract()
-- To find a multi-color object: select(connected) → filter(has_colors=[c1,c2...]) → extract()
+- If OUTPUT is SMALLER than INPUT → select(connected) → select(smallest) → extract()!
+- ⚠️ filter() may keep MULTIPLE objects - add select(smallest) to pick ONE!
+- ⚠️ extract() crops to bounding box of ALL selections - must have ONE object first!
+- Simple pattern: select(connected) → select(smallest) → extract()
 - Max 5 steps
 - Colors: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 8=cyan, 9=brown
 """
