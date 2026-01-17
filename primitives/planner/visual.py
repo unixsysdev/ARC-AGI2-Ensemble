@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 class VisualPlanner:
     """Generate step-by-step plans using VLM with rendered grid images."""
     
+    # Original structured prompt (default)
     VISUAL_PLANNING_PROMPT = """You are an expert ARC-AGI puzzle solver. I'm showing you training examples.
 
 Each example shows INPUT grid (left) → OUTPUT grid (right).
@@ -34,25 +35,23 @@ Each example shows INPUT grid (left) → OUTPUT grid (right).
 Translate your visual understanding DIRECTLY into these executable primitives:
 
 ```
-AVAILABLE PRIMITIVES - You can use NATURAL LANGUAGE for arguments!
+AVAILABLE PRIMITIVES (use exact function syntax):
 
-# Selection - describe WHAT you want to select
-select("the small colorful object that differs from the noise")
-select("the largest connected component")
-select("objects containing blue and green colors")
-select("the one object with unique colors")
+# Selection
+select(criteria="color", value=N)           # Select all cells of color N (0-9)
+select(criteria="connected")                 # Find all connected components
+select(criteria="largest")                   # Select the largest object
+select(criteria="smallest")                  # Select the smallest object
+select(criteria="unique", value="colors")    # Select object with UNIQUE color set
+select(criteria="size_rank", value=N)        # Select by size rank (0=smallest, -1=largest)
 
-# Filter - describe WHICH objects to keep  
-filter("keep only the smallest one")
-filter("keep objects with area around 9 cells")
-filter("keep the one with multiple colors")
+# Filters
+filter(condition="area_eq", value=9)         # Keep objects with area=9
+filter(condition="has_colors", value=[1,3,4]) # Keep objects with ALL these colors
 
 # Painting
 paint(color=N)                               # Paint selected cells with color N
 replace(source_color=A, target_color=B)      # Replace color A with B everywhere
-
-# Flood Fill
-flood_fill(color=N, start_position="border", target_color=0)
 
 # Extraction (USE WHEN OUTPUT IS SMALLER THAN INPUT!)
 extract()                                    # Crop grid to selection bounding box
@@ -69,15 +68,61 @@ gravity(direction="down"|"up"|"left"|"right")
 
 ### DSL Program
 ```dsl
-# Example with natural language arguments:
+1. select(criteria="unique", value="colors")
+2. extract()
+```
+
+CRITICAL RULES:
+- If OUTPUT is SMALLER than INPUT → select(unique) or select(smallest) first, then extract()!
+- Max 5 steps
+- Colors: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 8=cyan, 9=brown
+"""
+
+    # Free-form prompt (enabled with --freeform flag)
+    FREEFORM_PLANNING_PROMPT = """You are an expert ARC-AGI puzzle solver. I'm showing you training examples.
+
+Each example shows INPUT grid (left) → OUTPUT grid (right).
+
+## STEP 1: OBSERVE (describe what you SEE)
+1. What OBJECTS are in the input? (shapes, colors, sizes, positions)
+2. What CHANGES between input and output?
+3. What STAYS THE SAME? (invariants)
+4. Does the OUTPUT SIZE match the INPUT SIZE? If not, we need extract()!
+
+## STEP 2: GENERATE DSL PROGRAM
+Use NATURAL LANGUAGE to describe what you want to select/filter:
+
+```
+# Selection - describe WHAT you want to select
+select("the small colorful object that differs from the noise")
+select("the largest connected component")
+select("the one object with unique colors")
+
+# Filter - describe WHICH objects to keep  
+filter("keep only the smallest one")
+filter("keep the one with multiple colors")
+
+# Other primitives
+paint(color=N)                               # Paint selected cells
+replace(source_color=A, target_color=B)      # Replace colors
+extract()                                    # Crop to selection bounding box
+transform(action="rotate_90"|"flip_horizontal")
+```
+
+## OUTPUT FORMAT:
+
+### Observations
+[Brief description of what you see changing]
+
+### DSL Program
+```dsl
 1. select("the small multi-colored pattern that stands out from the large blocks")
 2. extract()
 ```
 
 CRITICAL RULES:
 - If OUTPUT is SMALLER than INPUT → select the target object, then extract()!
-- Use natural language to describe WHAT you want - another model will interpret it
-- Focus on describing the VISUAL PROPERTIES of the target object
+- Use NATURAL LANGUAGE to describe what you want - focus on VISUAL PROPERTIES
 - Max 5 steps
 - Colors: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 8=cyan, 9=brown
 """
@@ -92,6 +137,8 @@ CRITICAL RULES:
         self.client = client
         self.config = config
         self.model = config.vlm_model
+        # Use free-form prompt if enabled in config
+        self.use_freeform = getattr(config, 'use_freeform', False)
     
     async def generate_plan(self, task: Any, previous_feedback: list[str] = None) -> str:
         """Generate English plan by showing VLM the rendered training examples.
@@ -127,8 +174,13 @@ CRITICAL RULES:
             # For now, use the first example (most VLMs handle single images best)
             primary_image = comparison_images[0]
             
-            # Build prompt with context
-            prompt = self.VISUAL_PLANNING_PROMPT
+            # Build prompt with context - choose based on freeform flag
+            if self.use_freeform:
+                prompt = self.FREEFORM_PLANNING_PROMPT
+                logger.info("[VLM PLANNING] Using FREE-FORM mode (natural language arguments)")
+            else:
+                prompt = self.VISUAL_PLANNING_PROMPT
+            
             if len(task.train) > 1:
                 prompt += f"\n\nNote: There are {len(task.train)} training examples. This image shows Example 1. The same transformation rule applies to all examples."
             

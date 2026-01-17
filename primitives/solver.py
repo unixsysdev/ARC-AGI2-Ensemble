@@ -96,9 +96,12 @@ class PrimitivesSolver:
             english_plan = await self.text_planner.plan(task)
         logger.debug(f"Plan:\\n{english_plan}")
         
-        # 2. Interpret free-form arguments (if any)
+        # 2. Interpret free-form arguments (if freeform mode enabled)
         logger.info("Step 2: Translating to primitives...")
-        interpreted_plan = await self.freeform_interpreter.interpret(english_plan)
+        if getattr(self.config, 'use_freeform', False):
+            interpreted_plan = await self.freeform_interpreter.interpret(english_plan)
+        else:
+            interpreted_plan = english_plan
         program = await self.translator.translate(interpreted_plan)
         logger.debug(f"Program: {program}")
         
@@ -232,9 +235,12 @@ class PrimitivesSolver:
             english_plan = await self.text_planner.plan(task)
         logger.debug(f"Plan:\n{english_plan}")
         
-        # 2. Interpret free-form arguments and translate
+        # 2. Interpret free-form arguments (if freeform mode enabled)
         logger.info("Step 2: Translating to primitives...")
-        interpreted_plan = await self.freeform_interpreter.interpret(english_plan)
+        if getattr(self.config, 'use_freeform', False):
+            interpreted_plan = await self.freeform_interpreter.interpret(english_plan)
+        else:
+            interpreted_plan = english_plan
         program = await self.translator.translate(interpreted_plan)
         
         # 3. Execute with verification

@@ -89,6 +89,11 @@ Examples:
         help="Use ENSEMBLE planner (VLM visual + LLM symbolic dual-path)"
     )
     parser.add_argument(
+        "--freeform",
+        action="store_true",
+        help="Enable FREE-FORM mode: use natural language args like select('the colorful object')"
+    )
+    parser.add_argument(
         "--no-vlm",
         action="store_true",
         help="Disable VLM verification (faster but less accurate)"
@@ -170,6 +175,11 @@ Examples:
         logger.info("Visual planning enabled (VLM will analyze grid images)")
     else:
         config.use_visual_planning = False
+    
+    # Free-form mode: natural language arguments
+    config.use_freeform = args.freeform
+    if args.freeform:
+        logger.info("FREE-FORM mode enabled (natural language → interpreter → code)")
     
     # Override models if specified
     if args.vlm_model:
