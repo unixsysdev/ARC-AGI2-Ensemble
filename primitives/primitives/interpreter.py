@@ -247,6 +247,56 @@ class PrimitiveInterpreter:
                 target_idx = sorted_indices[min(rank, len(sorted_indices) - 1)]
             
             selection = Selection(mask=labeled == (target_idx + 1), source_grid=grid)
+        
+        elif params.criteria == SelectCriteria.UNIQUE:
+            # Select object with unique property (value specifies property: "colors", "size", "shape")
+            # Default to "colors" if not specified
+            unique_by = params.value if isinstance(params.value, str) else "colors"
+            
+            # First get all connected components
+            mask = arr != 0
+            labeled, num_features = ndimage.label(mask)
+            
+            if num_features == 0:
+                return ExecutionState(grid=grid, selections=[Selection.empty(grid)])
+            
+            # Compute property for each component
+            properties = {}
+            for i in range(1, num_features + 1):
+                component_mask = labeled == i
+                component_values = arr[component_mask]
+                
+                if unique_by == "colors":
+                    # Use frozenset of colors as key
+                    prop = frozenset(np.unique(component_values))
+                elif unique_by == "size":
+                    # Use size as key
+                    prop = np.sum(component_mask)
+                elif unique_by == "shape":
+                    # Use bounding box dimensions as key
+                    rows, cols = np.where(component_mask)
+                    h = rows.max() - rows.min() + 1
+                    w = cols.max() - cols.min() + 1
+                    prop = (h, w)
+                else:
+                    prop = frozenset(np.unique(component_values))
+                
+                if prop not in properties:
+                    properties[prop] = []
+                properties[prop].append(i)
+            
+            # Find the property that appears only ONCE
+            unique_label = None
+            for prop, labels in properties.items():
+                if len(labels) == 1:
+                    unique_label = labels[0]
+                    break
+            
+            if unique_label is None:
+                # No unique object found - return empty
+                return ExecutionState(grid=grid, selections=[Selection.empty(grid)])
+            
+            selection = Selection(mask=labeled == unique_label, source_grid=grid)
             
         elif params.criteria == SelectCriteria.POSITION:
             # Select by position (value should be (r1, c1, r2, c2))

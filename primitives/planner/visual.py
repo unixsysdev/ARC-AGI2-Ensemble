@@ -42,7 +42,8 @@ select(criteria="connected")                 # Find all connected components
 select(criteria="largest")                   # Select the largest object
 select(criteria="smallest")                  # Select the smallest object
 select(criteria="size_rank", value=N)        # Select by size rank (0=smallest, -1=largest)
-select(criteria="color", value=3, mode="intersect")  # Keep only red cells that were already selected
+select(criteria="unique", value="colors")    # Select object with UNIQUE color set
+select(criteria="unique", value="size")      # Select object with UNIQUE size
 select(criteria="enclosed", enclosing_color=N)  # Find regions enclosed by color N
 
 # Painting

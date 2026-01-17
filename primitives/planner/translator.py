@@ -186,6 +186,17 @@ class PrimitiveTranslator:
         if "select all non-" in step_lower and "background" in step_lower:
             return select(SelectCriteria.ALL, english=step)
         
+        # Unique selection patterns
+        if "unique" in step_lower:
+            if "color" in step_lower:
+                return select(SelectCriteria.UNIQUE, "colors", english=step)
+            elif "size" in step_lower:
+                return select(SelectCriteria.UNIQUE, "size", english=step)
+            elif "shape" in step_lower:
+                return select(SelectCriteria.UNIQUE, "shape", english=step)
+            else:
+                return select(SelectCriteria.UNIQUE, "colors", english=step)  # default
+        
         # Advanced selection patterns
         if "find holes" in step_lower or "enclosed" in step_lower or "inside" in step_lower:
             # Find enclosed regions

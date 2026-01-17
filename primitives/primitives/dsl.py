@@ -48,6 +48,7 @@ class SelectCriteria(Enum):
     SIZE_RANK = "size_rank"      # Select by size rank (0=smallest, -1=largest, 1=2nd smallest)
     ALL = "all"                  # Select all non-background objects
     CONNECTED = "connected"      # Select connected components
+    UNIQUE = "unique"            # Select object with unique property (unique_by in value)
     
     # Advanced pattern matching criteria
     PATTERN = "pattern"          # Match a template pattern (template in value)
