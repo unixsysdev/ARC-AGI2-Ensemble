@@ -54,7 +54,9 @@ class PrimitivesSolver:
         from .planner.ensemble import EnsemblePlanner
         self.ensemble_planner = EnsemblePlanner(client, config)
         
-        # Translator and interpreter
+        # Free-form interpreter and translator
+        from .planner.freeform_interpreter import FreeFormInterpreter
+        self.freeform_interpreter = FreeFormInterpreter(client, config)
         self.translator = PrimitiveTranslator(client, config)
         self.interpreter = PrimitiveInterpreter()
         
@@ -94,9 +96,10 @@ class PrimitivesSolver:
             english_plan = await self.text_planner.plan(task)
         logger.debug(f"Plan:\\n{english_plan}")
         
-        # 2. Translate: Convert to primitives
+        # 2. Interpret free-form arguments (if any)
         logger.info("Step 2: Translating to primitives...")
-        program = await self.translator.translate(english_plan)
+        interpreted_plan = await self.freeform_interpreter.interpret(english_plan)
+        program = await self.translator.translate(interpreted_plan)
         logger.debug(f"Program: {program}")
         
         # 3. Execute with verification
@@ -229,9 +232,10 @@ class PrimitivesSolver:
             english_plan = await self.text_planner.plan(task)
         logger.debug(f"Plan:\n{english_plan}")
         
-        # 2. Translate
+        # 2. Interpret free-form arguments and translate
         logger.info("Step 2: Translating to primitives...")
-        program = await self.translator.translate(english_plan)
+        interpreted_plan = await self.freeform_interpreter.interpret(english_plan)
+        program = await self.translator.translate(interpreted_plan)
         
         # 3. Execute with verification
         logger.info("Step 3: Executing with verification...")

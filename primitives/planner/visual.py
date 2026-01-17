@@ -34,40 +34,32 @@ Each example shows INPUT grid (left) → OUTPUT grid (right).
 Translate your visual understanding DIRECTLY into these executable primitives:
 
 ```
-AVAILABLE PRIMITIVES (use exact function syntax):
+AVAILABLE PRIMITIVES - You can use NATURAL LANGUAGE for arguments!
 
-# Selection (mode: set=replace, intersect=keep overlap, union=add)
-select(criteria="color", value=N)           # Select all cells of color N (0-9)
-select(criteria="connected")                 # Find all connected components
-select(criteria="largest")                   # Select the largest object
-select(criteria="smallest")                  # Select the smallest object
-select(criteria="size_rank", value=N)        # Select by size rank (0=smallest, -1=largest)
-select(criteria="unique", value="colors")    # Select object with UNIQUE color set
-select(criteria="unique", value="size")      # Select object with UNIQUE size
-select(criteria="enclosed", enclosing_color=N)  # Find regions enclosed by color N
+# Selection - describe WHAT you want to select
+select("the small colorful object that differs from the noise")
+select("the largest connected component")
+select("objects containing blue and green colors")
+select("the one object with unique colors")
+
+# Filter - describe WHICH objects to keep  
+filter("keep only the smallest one")
+filter("keep objects with area around 9 cells")
+filter("keep the one with multiple colors")
 
 # Painting
 paint(color=N)                               # Paint selected cells with color N
 replace(source_color=A, target_color=B)      # Replace color A with B everywhere
 
-# Flood Fill (CRITICAL: always specify target_color!)
-flood_fill(color=N, start_position="border", target_color=0)  # Fill from border
-
-# ⭐ FILTERS - USE AFTER select(connected) TO FIND SPECIFIC OBJECTS ⭐
-filter(condition="area_eq", value=9)         # Keep objects with area=9 (e.g., 3x3)
-filter(condition="area_lt", value=10)        # Keep objects smaller than 10 cells
-filter(condition="has_colors", value=[1,3,4]) # Keep objects containing ALL these colors
-filter(condition="touches_border")           # Keep objects touching the edge
+# Flood Fill
+flood_fill(color=N, start_position="border", target_color=0)
 
 # Extraction (USE WHEN OUTPUT IS SMALLER THAN INPUT!)
 extract()                                    # Crop grid to selection bounding box
 
-# Transformations
-transform(action="rotate_90")
-transform(action="rotate_180")
-transform(action="flip_horizontal")
-transform(action="flip_vertical")
-gravity(direction="down")                    # Drop objects in direction
+# Transformations  
+transform(action="rotate_90"|"flip_horizontal"|etc)
+gravity(direction="down"|"up"|"left"|"right")
 ```
 
 ## OUTPUT FORMAT:
@@ -77,18 +69,15 @@ gravity(direction="down")                    # Drop objects in direction
 
 ### DSL Program
 ```dsl
-# Find the UNIQUE object (different color set from others):
-1. select(criteria="unique", value="colors")
+# Example with natural language arguments:
+1. select("the small multi-colored pattern that stands out from the large blocks")
 2. extract()
 ```
 
 CRITICAL RULES:
-- If OUTPUT is SMALLER than INPUT → try select(unique) or select(smallest) first!
-- ⚠️ select(criteria="unique", value="colors") finds object with unique color combination
-- ⚠️ extract() crops to bounding box - must have ONE object first!
-- Patterns: 
-  1. select(unique) → extract()  [for special/different object]
-  2. select(connected) → select(smallest) → extract()  [for size-based]
+- If OUTPUT is SMALLER than INPUT → select the target object, then extract()!
+- Use natural language to describe WHAT you want - another model will interpret it
+- Focus on describing the VISUAL PROPERTIES of the target object
 - Max 5 steps
 - Colors: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 8=cyan, 9=brown
 """
