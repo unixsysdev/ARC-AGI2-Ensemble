@@ -10,7 +10,7 @@ Two approaches to solving [ARC-AGI-2](https://github.com/arcprize/ARC-AGI-2):
 ## Quick Navigation
 - [DSL Primitives Reference](#-dsl-primitives-reference)
 - [Systems Solver (Code)](#-systems-solver-code-synthesis)
-- [Primitives Architecture](#-primitives-architecture)
+- [Primitives Architecture](#%EF%B8%8F-primitives-architecture)
 - [Usage](#-usage)
 - [Setup](#-setup)
 
