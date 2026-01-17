@@ -204,16 +204,26 @@ python run.py --solver systems --task-id 00d62c1b
 
 ## 🚀 Usage
 
-### Basic Run
+### 1. Systems Solver (Code Synthesis)
 ```bash
-python run.py --solver primitives --task-id 00d62c1b --preset balanced
+# Generate Python code, execute in sandbox
+python run.py --solver systems --task-id 00d62c1b
 ```
 
-### Ensemble Mode (Recommended)
+### 2. Primitives Solver (Structured DSL)
 ```bash
+# Use structured DSL: select(criteria="unique", value="colors")
 python run.py --solver primitives --task-id 0a1d4ef5 \
   --vlm-model "Qwen/Qwen3-VL-235B-A22B-Instruct" \
   --ensemble --attempts 5
+```
+
+### 3. Primitives Solver (Free-Form Mode)
+```bash
+# Use natural language: select("the colorful object that differs")
+python run.py --solver primitives --task-id 0a1d4ef5 \
+  --vlm-model "Qwen/Qwen3-VL-235B-A22B-Instruct" \
+  --ensemble --freeform --attempts 5
 ```
 
 ### All Options
