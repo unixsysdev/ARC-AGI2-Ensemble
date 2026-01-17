@@ -66,7 +66,8 @@ Respond with ONLY the structured command, nothing else."""
         """Initialize interpreter."""
         self.client = client
         self.config = config
-        self.model = config.coder_model
+        # Use VLM model (more reliable) - it can do text-only too
+        self.model = config.vlm_model
     
     async def interpret(self, plan: str) -> str:
         """Interpret a plan with natural language arguments.

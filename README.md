@@ -1,12 +1,18 @@
-# ARC-AGI-2 Primitives Solver
+# ARC-AGI-2 Solver
 
-A solver for [ARC-AGI-2](https://github.com/arcprize/ARC-AGI-2) using **visual planning** with **DSL primitives** and **step-by-step VLM verification**.
+Two approaches to solving [ARC-AGI-2](https://github.com/arcprize/ARC-AGI-2):
+
+| Solver | Approach | Best For |
+|--------|----------|----------|
+| **Primitives** | DSL + VLM verification | Pattern recognition, object manipulation |
+| **Systems** | Python code synthesis + execution | Complex logic, counting, math |
 
 ## Quick Navigation
-- [🧩 DSL Primitives Reference](#dsl-primitives-reference)
-- [🏗️ System Architecture](#system-architecture)
-- [🚀 Usage](#usage)
-- [⚙️ Setup](#setup)
+- [DSL Primitives Reference](#-dsl-primitives-reference)
+- [Systems Solver (Code)](#-systems-solver-code-synthesis)
+- [Primitives Architecture](#-primitives-architecture)
+- [Usage](#-usage)
+- [Setup](#-setup)
 
 ---
 
@@ -95,7 +101,54 @@ filter("keep the one with multiple colors")
 
 ---
 
-## 🏗️ System Architecture
+## 🔧 Systems Solver (Code Synthesis)
+
+The **Systems** solver generates Python code to transform grids, then executes it in a sandbox.
+
+### Architecture
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                           SYSTEM 2: Manager                               │
+│  HeuristicPolicy decides: FAST_GUESS_CODE or FAST_GUESS_INSTRUCTION       │
+└────────────────────────────────────────┬──────────────────────────────────┘
+                                         │
+          ┌──────────────────────────────┼──────────────────────────────────┐
+          ▼                              ▼                                  ▼
+┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────┐
+│  Code Generator         │  │  Instruction Generator  │  │  VLM Critic             │
+│  LLM → Python code      │  │  LLM → English steps    │  │  Visual verification    │
+│  Sandboxed execution    │  │  LLM executes steps     │  │  "VALID" / "INVALID"    │
+└─────────────────────────┘  └─────────────────────────┘  └─────────────────────────┘
+```
+
+### How It Works
+
+1. **Code Generation**: LLM generates Python `def transform(input_grid) -> output_grid`
+2. **Sandbox Execution**: Code runs in restricted namespace with 5s timeout
+3. **Scoring**: Test on training pairs, score by cell-wise accuracy
+4. **Refinement**: Failed code gets error message, LLM fixes it
+5. **VLM Verification**: Visual check catches broken patterns
+
+### Usage
+
+```bash
+python run.py --solver systems --task-id 00d62c1b
+```
+
+### When to Use Systems vs Primitives
+
+| Task Type | Best Solver |
+|-----------|-------------|
+| Object extraction | Primitives |
+| Color replacement | Primitives |
+| Counting, math | Systems |
+| Complex logic | Systems |
+| Pattern matching | Both work |
+
+---
+
+## 🏗️ Primitives Architecture
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
