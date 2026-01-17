@@ -18,18 +18,13 @@ from systems.models.task import Task
 # Import primitives modules
 from primitives.config import load_config, MODEL_PRESETS
 from primitives.solver import PrimitivesSolver
+from primitives.utils.colors import setup_colored_logging
 
 
 def setup_logging(verbose: bool = False):
-    """Configure logging."""
+    """Configure colored logging."""
     level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
+    setup_colored_logging(level)
 
 
 async def main():
