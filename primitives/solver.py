@@ -246,10 +246,21 @@ class PrimitivesSolver:
         if getattr(self.config, 'use_freeform', False):
             # First, validate the idea with critic
             critic_verdict = await self.freeform_critic.validate(english_plan, task)
+            
+            # If critic says INVALID, add suggestion to failures for next attempt
+            if not critic_verdict.valid and critic_verdict.suggestion:
+                step_failures_from_critic = [
+                    f"[CRITIC REJECTED] {critic_verdict.reasoning}",
+                    f"[CRITIC SUGGESTION] {critic_verdict.suggestion}"
+                ]
+            else:
+                step_failures_from_critic = []
+            
             # Then interpret to structured DSL
             interpreted_plan = await self.freeform_interpreter.interpret(english_plan)
         else:
             interpreted_plan = english_plan
+            step_failures_from_critic = []
         program = await self.translator.translate(interpreted_plan)
         
         # 3. Execute with verification
@@ -260,13 +271,16 @@ class PrimitivesSolver:
             english_plan
         )
         
+        # Combine critic failures with execution failures
+        all_step_failures = step_failures_from_critic + step_failures
+        
         # Track partial success: idea was correct but code failed
         if critic_verdict and critic_verdict.valid and step_failures:
             self.idea_correct_code_failed += 1
             logger.warning(f"[PARTIAL SUCCESS] 💡 Idea was CORRECT (critic: {critic_verdict.confidence}) but code failed!")
             logger.warning(f"[PARTIAL SUCCESS] This indicates a DSL expressiveness issue, not a reasoning failure.")
         
-        return final_state.grid, step_failures, program
+        return final_state.grid, all_step_failures, program
     
     async def solve_with_retry(
         self,
