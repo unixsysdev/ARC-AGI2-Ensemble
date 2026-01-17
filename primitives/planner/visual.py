@@ -77,17 +77,18 @@ gravity(direction="down")                    # Drop objects in direction
 
 ### DSL Program
 ```dsl
-# If multiple objects might match, pick ONE:
-1. select(criteria="connected")
-2. select(criteria="smallest")   # or filter then select
-3. extract()
+# Find the UNIQUE object (different color set from others):
+1. select(criteria="unique", value="colors")
+2. extract()
 ```
 
 CRITICAL RULES:
-- If OUTPUT is SMALLER than INPUT → select(connected) → select(smallest) → extract()!
-- ⚠️ filter() may keep MULTIPLE objects - add select(smallest) to pick ONE!
-- ⚠️ extract() crops to bounding box of ALL selections - must have ONE object first!
-- Simple pattern: select(connected) → select(smallest) → extract()
+- If OUTPUT is SMALLER than INPUT → try select(unique) or select(smallest) first!
+- ⚠️ select(criteria="unique", value="colors") finds object with unique color combination
+- ⚠️ extract() crops to bounding box - must have ONE object first!
+- Patterns: 
+  1. select(unique) → extract()  [for special/different object]
+  2. select(connected) → select(smallest) → extract()  [for size-based]
 - Max 5 steps
 - Colors: 0=black, 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 8=cyan, 9=brown
 """

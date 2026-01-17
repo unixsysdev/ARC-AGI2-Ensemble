@@ -92,15 +92,14 @@ gravity(direction="down"|"up"|"left"|"right")
 
 ### DSL Program
 ```dsl
-# Pick the smallest object:
-1. select(criteria="connected")
-2. select(criteria="smallest")
-3. extract()
+# Find the UNIQUE object (different color set from others):
+1. select(criteria="unique", value="colors")
+2. extract()
 ```
 
 CRITICAL: 
-- If OUTPUT SIZE < INPUT SIZE → select(connected) → select(smallest) → extract()!
-- ⚠️ filter() may keep MULTIPLE objects - add select(smallest) to pick ONE!
+- If OUTPUT SIZE < INPUT SIZE → try select(unique) or select(smallest) first!
+- select(criteria="unique", value="colors") finds object with unique color combination
 - extract() crops to bounding box - MUST have ONE object first!
 """
 
