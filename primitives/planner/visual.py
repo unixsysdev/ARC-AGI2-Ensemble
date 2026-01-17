@@ -186,13 +186,26 @@ CRITICAL RULES:
             
             # Add feedback from previous attempt if available
             if previous_feedback:
-                feedback_text = "\n".join(previous_feedback[:3])  # Limit to top 3 failures
+                # Separate critic suggestions from other failures
+                critic_suggestions = [f for f in previous_feedback if "[CRITIC SUGGESTION]" in f]
+                other_failures = [f for f in previous_feedback if "[CRITIC SUGGESTION]" not in f][:3]
+                
+                feedback_parts = []
+                if other_failures:
+                    feedback_parts.append("\\n".join(other_failures))
+                
+                # Highlight critic suggestions prominently
+                if critic_suggestions:
+                    suggestion_text = "\\n".join(critic_suggestions)
+                    feedback_parts.append(f"\\n💡 RECOMMENDED APPROACH:\\n{suggestion_text}")
+                
+                feedback_text = "\\n".join(feedback_parts)
                 prompt += f"""
 
 IMPORTANT - PREVIOUS ATTEMPT FAILED:
 {feedback_text}
 
-Learn from these failures and try a DIFFERENT approach. Avoid the same mistakes.
+Learn from these failures and try a COMPLETELY DIFFERENT approach!
 """
                 logger.info(f"Including feedback from {len(previous_feedback)} previous failures")
             
