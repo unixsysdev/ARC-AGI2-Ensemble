@@ -194,6 +194,22 @@ Planner → Translator → Interpreter → Executor → Judge
 
 **Key Insight**: If `Ideas VALID` > `Code SUCCESS` → our DSL can't express what the model knows!
 
+### Example Output
+
+```
+[CRITIC] ✅ VALID (high): The proposed plan directly addresses the core transformation...
+[INTERPRETER] select("the object with unique colors") → filter(condition="has_colors", value=[1, 3, 4, 6])
+[PARTIAL SUCCESS] 💡 Idea was CORRECT (critic: high) but code failed!
+[PARTIAL SUCCESS] This indicates a DSL expressiveness issue, not a reasoning failure.
+
+============================================================
+[FREE-FORM SUMMARY]
+  Total attempts: 10
+  Ideas correct but CODE FAILED: 3
+  ⚠️  DSL expressiveness gap detected - model reasoning is ahead of our code!
+============================================================
+```
+
 ### Key Features
 
 | Feature | Description |
@@ -201,7 +217,7 @@ Planner → Translator → Interpreter → Executor → Judge
 | **Separate Metrics** | Idea correctness tracked separately from code generation |
 | **Critic Validation** | Validates reasoning BEFORE attempting to code |
 | **Partial Success** | Tracks "idea correct, code failed" as DSL gap |
-| **Feedback Loop** | Previous failures inform next attempt |
+| **Feedback Loop** | Previous failures + critic suggestions inform next attempt |
 | **Filmstrip Rendering** | Visual step-by-step execution trace |
 
 ---
