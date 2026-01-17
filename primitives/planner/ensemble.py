@@ -169,6 +169,10 @@ CRITICAL:
         
         self.vlm_model = config.vlm_model
         self.coder_model = config.coder_model
+        
+        # Track which expert wins each attempt (for alternation on failure)
+        self.expert_history: list[str] = []  # ["VLM", "LLM", ...]
+        self.last_expert: str = None
     
     async def generate_plan(
         self, 
@@ -372,6 +376,31 @@ If a candidate doesn't use extract(), REJECT IT or add extract() at the end.
                 temperature=0.1  # Low temp for strict selection
             )
             logger.info(f"[META-REVIEWER] Selection complete: {len(response)} chars")
+            
+            # Detect which expert was chosen
+            response_lower = response.lower()
+            if "visual expert" in response_lower or "vlm" in response_lower[:200]:
+                chosen_expert = "VLM"
+            elif "symbolic expert" in response_lower or "llm" in response_lower[:200]:
+                chosen_expert = "LLM"
+            else:
+                # Try to detect by content similarity
+                chosen_expert = "VLM" if visual_plan[:50] in response else "LLM"
+            
+            # Check if we should force alternate (same expert failed 2+ times)
+            if len(self.expert_history) >= 2:
+                last_two = self.expert_history[-2:]
+                if last_two[0] == last_two[1] == chosen_expert:
+                    # Force switch to the other expert!
+                    alt_expert = "LLM" if chosen_expert == "VLM" else "VLM"
+                    logger.warning(f"[META-REVIEWER] ⚠️ {chosen_expert} failed {len([e for e in self.expert_history[-3:] if e == chosen_expert])}x in a row → Forcing {alt_expert}!")
+                    response = visual_plan if alt_expert == "VLM" else symbolic_plan
+                    chosen_expert = alt_expert
+            
+            # Track this choice
+            self.expert_history.append(chosen_expert)
+            self.last_expert = chosen_expert
+            logger.info(f"[META-REVIEWER] Chosen expert: {chosen_expert} (history: {self.expert_history[-5:]})")
             
             # Post-check: If extract was needed but not in response, append warning
             if needs_extract and "extract()" not in response.lower():
