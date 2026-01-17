@@ -54,11 +54,16 @@ class PrimitivesSolver:
         from .planner.ensemble import EnsemblePlanner
         self.ensemble_planner = EnsemblePlanner(client, config)
         
-        # Free-form interpreter and translator
+        # Free-form interpreter, critic, and translator
         from .planner.freeform_interpreter import FreeFormInterpreter
+        from .planner.freeform_critic import FreeFormCritic
         self.freeform_interpreter = FreeFormInterpreter(client, config)
+        self.freeform_critic = FreeFormCritic(client, config)
         self.translator = PrimitiveTranslator(client, config)
         self.interpreter = PrimitiveInterpreter()
+        
+        # Track partial successes (idea correct, code failed)
+        self.idea_correct_code_failed = 0
         
         # Initialize filmstrip renderer and judge
         self.filmstrip_renderer = FilmstripRenderer(config.filmstrips_dir)
@@ -235,9 +240,13 @@ class PrimitivesSolver:
             english_plan = await self.text_planner.plan(task)
         logger.debug(f"Plan:\n{english_plan}")
         
-        # 2. Interpret free-form arguments (if freeform mode enabled)
+        # 2. Validate and interpret (if freeform mode enabled)
         logger.info("Step 2: Translating to primitives...")
+        critic_verdict = None
         if getattr(self.config, 'use_freeform', False):
+            # First, validate the idea with critic
+            critic_verdict = await self.freeform_critic.validate(english_plan, task)
+            # Then interpret to structured DSL
             interpreted_plan = await self.freeform_interpreter.interpret(english_plan)
         else:
             interpreted_plan = english_plan
@@ -250,6 +259,12 @@ class PrimitivesSolver:
             program, 
             english_plan
         )
+        
+        # Track partial success: idea was correct but code failed
+        if critic_verdict and critic_verdict.valid and step_failures:
+            self.idea_correct_code_failed += 1
+            logger.warning(f"[PARTIAL SUCCESS] 💡 Idea was CORRECT (critic: {critic_verdict.confidence}) but code failed!")
+            logger.warning(f"[PARTIAL SUCCESS] This indicates a DSL expressiveness issue, not a reasoning failure.")
         
         return final_state.grid, step_failures, program
     
@@ -366,6 +381,17 @@ class PrimitivesSolver:
             except Exception as e:
                 logger.error(f"Attempt {attempt + 1} failed: {e}")
                 all_failures.append(f"Attempt {attempt + 1} crashed: {str(e)}")
+        
+        # Log summary for free-form mode
+        if getattr(self.config, 'use_freeform', False):
+            logger.info("=" * 60)
+            logger.info("[FREE-FORM SUMMARY]")
+            logger.info(f"  Total attempts: {max_attempts}")
+            logger.info(f"  Ideas validated as CORRECT by critic: (tracked per-attempt)")
+            logger.info(f"  Ideas correct but CODE FAILED: {self.idea_correct_code_failed}")
+            if self.idea_correct_code_failed > 0:
+                logger.info(f"  ⚠️  DSL expressiveness gap detected - model reasoning is ahead of our code!")
+            logger.info("=" * 60)
         
         return candidates
     
