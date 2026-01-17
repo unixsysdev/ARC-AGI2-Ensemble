@@ -15,36 +15,49 @@ logger = logging.getLogger(__name__)
 class FreeFormInterpreter:
     """Interpret natural language DSL arguments into structured primitives."""
     
-    INTERPRETATION_PROMPT = """You are a DSL interpreter. Convert natural language arguments to structured parameters.
+    INTERPRETATION_PROMPT = """You are a DSL interpreter for ARC-AGI puzzles. Convert natural language arguments to structured parameters.
 
-INPUT: A DSL command with natural language argument
-OUTPUT: The same command with structured parameters
+## ARC GRID FORMAT
+- Grids are 2D arrays of integers 0-9 (each integer is a color)
+- Grids can be up to 30x30 cells
+- "Objects" are connected regions of non-zero cells (4-connected)
 
-AVAILABLE STRUCTURED PARAMETERS:
+## COLOR REFERENCE
+0=black (background), 1=blue, 2=red, 3=green, 4=yellow, 5=grey, 6=pink, 7=orange, 8=cyan, 9=brown
+
+## INPUT
+A DSL command with natural language argument like: select("the colorful blob")
+
+## OUTPUT  
+The same command with structured parameters like: select(criteria="unique", value="colors")
+
+## AVAILABLE STRUCTURED PARAMETERS
 
 For select():
 - select(criteria="color", value=N)        # Select cells of color N (0-9)
 - select(criteria="connected")              # Find all connected components
-- select(criteria="largest")                # Select largest object
-- select(criteria="smallest")               # Select smallest object  
-- select(criteria="unique", value="colors") # Select object with unique color set
-- select(criteria="unique", value="size")   # Select object with unique size
+- select(criteria="largest")                # Select largest object by area
+- select(criteria="smallest")               # Select smallest object by area
+- select(criteria="unique", value="colors") # Object with UNIQUE color combination
+- select(criteria="unique", value="size")   # Object with UNIQUE size
 - select(criteria="size_rank", value=N)     # By size rank (0=smallest, -1=largest)
 
 For filter():
-- filter(condition="area_eq", value=N)      # Keep objects with area=N
+- filter(condition="area_eq", value=N)      # Keep objects with exactly N cells
 - filter(condition="area_lt", value=N)      # Keep objects smaller than N cells
+- filter(condition="area_gt", value=N)      # Keep objects larger than N cells
 - filter(condition="has_colors", value=[...]) # Keep objects with ALL these colors
-- filter(condition="touches_border")        # Keep objects touching edge
+- filter(condition="touches_border")        # Keep objects touching grid edge
 
-EXAMPLES:
-- select("the small colorful object") → select(criteria="unique", value="colors")
-- select("the largest one") → select(criteria="largest")
-- select("objects with blue and red") → filter(condition="has_colors", value=[1, 2])
-- filter("keep only the smallest") → select(criteria="smallest")
-- select("the one that's different from the noise") → select(criteria="unique", value="colors")
+## TRANSLATION EXAMPLES
+- "small colorful object" → select(criteria="unique", value="colors")
+- "the largest one" → select(criteria="largest")
+- "objects with blue and red" → filter(condition="has_colors", value=[1, 2])
+- "the one that's different" → select(criteria="unique", value="colors")
+- "3x3 objects" → filter(condition="area_eq", value=9)
+- "the anomaly" → select(criteria="unique", value="colors")
 
-Now interpret this command:
+## NOW INTERPRET THIS:
 {command}
 
 Respond with ONLY the structured command, nothing else."""
