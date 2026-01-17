@@ -8,15 +8,15 @@ Two approaches to solving [ARC-AGI-2](https://github.com/arcprize/ARC-AGI-2):
 | **Systems** | Python code synthesis + execution | Complex logic, counting, math |
 
 ## Quick Navigation
-- [DSL Primitives Reference](#-dsl-primitives-reference)
-- [Systems Solver (Code)](#-systems-solver-code-synthesis)
-- [Primitives Architecture](#%EF%B8%8F-primitives-architecture)
-- [Usage](#-usage)
-- [Setup](#-setup)
+- [DSL Primitives Reference](#dsl-primitives-reference)
+- [Systems Solver (Code)](#systems-solver-code-synthesis)
+- [Primitives Architecture](#primitives-architecture)
+- [Usage](#usage)
+- [Setup](#setup)
 
 ---
 
-## 🧩 DSL Primitives Reference
+## DSL Primitives Reference
 
 The solver uses a Domain-Specific Language (DSL) with **primitives** that can be chained together. 
 You can use **natural language** to describe arguments - the interpreter will convert them to structured parameters.
@@ -101,7 +101,7 @@ filter("keep the one with multiple colors")
 
 ---
 
-## 🔧 Systems Solver (Code Synthesis)
+## Systems Solver (Code Synthesis)
 
 The **Systems** solver generates Python code to transform grids, then executes it in a sandbox.
 
@@ -148,7 +148,7 @@ python run.py --solver systems --task-id 00d62c1b
 
 ---
 
-## 🏗️ Primitives Architecture
+## Primitives Architecture
 
 ### Structured DSL Mode (default)
 ```
@@ -222,7 +222,7 @@ Planner → Translator → Interpreter → Executor → Judge
 
 ---
 
-## 🚀 Usage
+## Usage
 
 ### 1. Systems Solver (Code Synthesis)
 ```bash
@@ -282,7 +282,7 @@ python run.py --solver primitives [OPTIONS]
 
 ---
 
-## ⚙️ Setup
+## Setup
 
 ### Prerequisites
 - Python 3.11+
